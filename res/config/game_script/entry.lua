@@ -19,6 +19,10 @@ local state = {
     pos = false
 }
 
+local function myErrorHandler(err)
+    print('entry.lua ERROR: ', err)
+end
+
 local cov = function(m)
     return func.seqMap({0, 3}, function(r)
         return func.seqMap({1, 4}, function(c)
@@ -57,53 +61,70 @@ local addEntry = function(id)
     if (state.linkEntries) then
         local entity = game.interface.getEntity(id)
         if (entity) then
-            local isEntry = entity.fileName == "street/underpass_entry.con"
-            local isStation = entity.fileName == "station/rail/mus.con"
-            local isBuilt = isStation and entity.params and entity.params.isFinalized == 1
-            if (isEntry or isStation) then
-                local layoutId = "underpass.link." .. tostring(id) .. "."
-                local hLayout = gui.boxLayout_create(layoutId .. "layout", "HORIZONTAL")
-                local label = gui.textView_create(layoutId .. "label", isEntry and tostring(id) or entity.name .. (isBuilt and _("BUILT") or ""), 300)
-                local icon = gui.imageView_create(layoutId .. "icon",
-                    isEntry and
-                    "ui/construction/street/underpass_entry_small.tga" or
-                    "ui/construction/station/rail/mus_small.tga"
-                )
-                local locateView = gui.imageView_create(layoutId .. "locate.icon", "ui/design/window-content/locate_small.tga")
-                local locateBtn = gui.button_create(layoutId .. "locate", locateView)
-                local checkboxView = gui.imageView_create(layoutId .. "checkbox.icon",
-                    func.contains(state.checkedItems, id)
-                    and "ui/design/components/checkbox_valid.tga"
-                    or "ui/design/components/checkbox_invalid.tga"
-                )
-                local checkboxBtn = gui.button_create(layoutId .. "checkbox", checkboxView)
-                
-                hLayout:addItem(locateBtn)
-                hLayout:addItem(checkboxBtn)
-                hLayout:addItem(icon)
-                hLayout:addItem(label)
-                
-                locateBtn:onClick(function()
-                    local pos = entity.position
-                    game.gui.setCamera({pos[1], pos[2], pos[3], -4.77, 0.2})
-                end)
-                
-                checkboxBtn:onClick(
-                    function()
-                        if (func.contains(state.checkedItems, id)) then
-                            checkboxView:setImage("ui/design/components/checkbox_invalid.tga")
-                            game.interface.sendScriptEvent("__underpassEvent__", "uncheck", {id = id})
-                        else
-                            checkboxView:setImage("ui/design/components/checkbox_valid.tga")
-                            game.interface.sendScriptEvent("__underpassEvent__", "check", {id = id})
+            -- xpcall(f: function, msgh: function, arg1: any, ...)
+            xpcall(function()
+                local isEntry = entity.fileName == "street/underpass_entry.con"
+                local isStation = entity.fileName == "station/rail/mus.con"
+                local isBuilt = isStation and entity.params and entity.params.isFinalized == 1
+                if (isEntry or isStation) then
+                -- print('LOLLO game.interface = ')
+                -- require('luadump')(true)(game.interface)
+                -- findPath = (),
+                -- get...()
+                -- sendScriptEvent = (),
+                -- setBuildInPauseModeAllowed = (),
+                -- setMarker = (),
+                -- setZone = ()
+                    local layoutId = "underpass.link." .. tostring(id) .. "."
+                    print('LOLLO id = ', id)
+                    print('LOLLO layoutId = ', layoutId)
+                    -- print('LOLLO entity = ')
+                    -- require('luadump')(true)(entity)
+                    local hLayout = gui.boxLayout_create(layoutId .. "layout", "HORIZONTAL") -- LOLLO TODO this dumps
+                    local label = gui.textView_create(layoutId .. "label", isEntry and tostring(id) or entity.name .. (isBuilt and _("BUILT") or ""), 300)
+                    local icon = gui.imageView_create(layoutId .. "icon",
+                        isEntry and
+                        "ui/construction/street/underpass_entry_small.tga" or
+                        "ui/construction/station/rail/mus_small.tga"
+                    )
+                    local locateView = gui.imageView_create(layoutId .. "locate.icon", "ui/design/window-content/locate_small.tga")
+                    local locateBtn = gui.button_create(layoutId .. "locate", locateView)
+                    local checkboxView = gui.imageView_create(layoutId .. "checkbox.icon",
+                        func.contains(state.checkedItems, id)
+                        and "ui/design/components/checkbox_valid.tga"
+                        or "ui/design/components/checkbox_invalid.tga"
+                    )
+                    local checkboxBtn = gui.button_create(layoutId .. "checkbox", checkboxView)
+                    
+                    hLayout:addItem(locateBtn)
+                    hLayout:addItem(checkboxBtn)
+                    hLayout:addItem(icon)
+                    hLayout:addItem(label)
+                    
+                    locateBtn:onClick(function()
+                        local pos = entity.position
+                        game.gui.setCamera({pos[1], pos[2], pos[3], -4.77, 0.2})
+                    end)
+                    
+                    checkboxBtn:onClick(
+                        function()
+                            if (func.contains(state.checkedItems, id)) then
+                                checkboxView:setImage("ui/design/components/checkbox_invalid.tga")
+                                game.interface.sendScriptEvent("__underpassEvent__", "uncheck", {id = id})
+                            else
+                                checkboxView:setImage("ui/design/components/checkbox_valid.tga")
+                                game.interface.sendScriptEvent("__underpassEvent__", "check", {id = id})
+                            end
                         end
-                    end
-                )
-                local comp = gui.component_create(layoutId .. "comp", "")
-                comp:setLayout(hLayout)
-                state.linkEntries.layout:addItem(comp)
-                state.addedItems[#state.addedItems + 1] = id
-            end
+                    )
+                    local comp = gui.component_create(layoutId .. "comp", "")
+                    comp:setLayout(hLayout)
+                    state.linkEntries.layout:addItem(comp)
+                    state.addedItems[#state.addedItems + 1] = id
+                end
+            end,
+            myErrorHandler
+        )
         end
     end
 end
@@ -528,40 +549,44 @@ local script = {
                 end
             end
             if toAdd and #toAdd > 0 then
-                        for i = 1, #toAdd do
-                            local con = toAdd[i]
-                            if (con.fileName == [[street/underpass_entry.con]]) then
-                                shaderWarning()
-                                -- LOLLO TODO do this better, like the station
-                                -- local newId = nil
-                                -- for keyy, _ in pairs(param.data.entity2tn) do
-                                --     if newId == nil then
-                                --         newId = keyy
-                                --     end
-                                -- end
+                for i = 1, #toAdd do
+                    local con = toAdd[i]
+                    if (con.fileName == [[street/underpass_entry.con]]) then
+                        shaderWarning()
+                        -- LOLLO TODO do this better, like the station
+                        -- local newId = nil
+                        -- for keyy, _ in pairs(param.data.entity2tn) do
+                        --     if newId == nil then
+                        --         newId = keyy
+                        --     end
+                        -- end
 
-                                -- get the id
-                                local newId = nil
-                                for k, _ in pairs(param.data.entity2tn) do
-                                    local entity = game.interface.getEntity(k)
-                                    -- n BASE_EDGE, m BASE_NODE, 1 CONSTRUCTION
-                                    if type(entity) == 'table' and type(entity.type) == 'string' and entity.type == 'CONSTRUCTION' then
-                                        newId = entity.id
-                                        break
-                                    end
-                                end
-
-                                game.interface.sendScriptEvent(
-                                    "__underpassEvent__", "new", 
-                                    {
-                                        -- id = param.result[1],
-                                        id = newId,
-                                        isEntry = true
-                                    }
-                                )
-                                state.showWindow = true
+                        -- get the id
+                        local newId = nil
+                        for k, _ in pairs(param.data.entity2tn) do
+                            local entity = game.interface.getEntity(k)
+                            -- n BASE_EDGE, m BASE_NODE, 1 CONSTRUCTION
+                            if type(entity) == 'table' and type(entity.type) == 'string' and entity.type == 'CONSTRUCTION' then
+                                newId = entity.id
+                                break
                             end
                         end
+
+                        if newId ~= nil then
+                            game.interface.sendScriptEvent(
+                                "__underpassEvent__", "new", 
+                                {
+                                    -- id = param.result[1],
+                                    id = newId,
+                                    isEntry = true
+                                }
+                            )
+                            state.showWindow = true
+                        else
+                            print('error in entry.lua: cannot get underpass id')
+                        end
+                    end
+                end
             end
         end
     end
