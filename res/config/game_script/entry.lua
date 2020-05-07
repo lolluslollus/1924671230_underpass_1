@@ -62,7 +62,7 @@ local addEntry = function(id)
             local isBuilt = isStation and entity.params and entity.params.isFinalized == 1
             if (isEntry or isStation) then
                 local layoutId = "underpass.link." .. tostring(id) .. "."
-                local hLayout = gui.boxLayout_create(layoutId .. "layout", "HORIZONTAL") -- LOLLO TODO this one dumps
+                local hLayout = gui.boxLayout_create(layoutId .. "layout", "HORIZONTAL")
                 local label = gui.textView_create(layoutId .. "label", isEntry and tostring(id) or entity.name .. (isBuilt and _("BUILT") or ""), 300)
                 local icon = gui.imageView_create(layoutId .. "icon",
                     isEntry and
@@ -77,7 +77,6 @@ local addEntry = function(id)
                     or "ui/design/components/checkbox_invalid.tga"
                 )
                 local checkboxBtn = gui.button_create(layoutId .. "checkbox", checkboxView)
-                
                 
                 hLayout:addItem(locateBtn)
                 hLayout:addItem(checkboxBtn)
@@ -387,7 +386,47 @@ local script = {
     end,
     handleEvent = function(src, id, name, param)
         if (id == "__underpassEvent__") then
-            -- LOLLO TODO renew names in state
+            -- LOLLO TODO renew names in state. Cannot be done from game.interface, the game won't allow it
+            -- print('LOLLO state = ')
+            -- require('luadump')(true)(state)
+            --[[ { -- after adding 1 underpass
+                addedItems = {  },
+                built = {  },
+                builtLevelCount = {  },
+                checkedItems = { 26379 },
+                entries = { 26379 },
+                items = { 26379 },
+                linkEntries = false,
+                pos = false,
+                stations = {  },
+                warningShaderMod = false
+              }
+              LOLLO state = 
+              { -- then I add a station, too
+                addedItems = {  },
+                built = {  },
+                builtLevelCount = {  },
+                checkedItems = { 26379, 25278 },
+                entries = { 26379 },
+                items = { 26379, 25278 },
+                linkEntries = false,
+                pos = false,
+                stations = { 25278 },
+                warningShaderMod = false
+              }
+              LOLLO state = 
+              { -- finally, I connect them together
+                addedItems = {  },
+                built = {  },
+                builtLevelCount = { 25278 = 1 },
+                checkedItems = {  },
+                entries = {  },
+                items = {  },
+                linkEntries = false,
+                pos = false,
+                stations = {  },
+                warningShaderMod = false
+              } ]]
             if (name == "remove") then
                 state.items = func.filter(state.items, function(e) return not func.contains(param, e) end)
                 state.checkedItems = func.filter(state.checkedItems, function(e) return not func.contains(param, e) end)
@@ -452,7 +491,7 @@ local script = {
             end
         end
     end,
-    guiHandleEvent = function(id, name, param, four, five, six)
+    guiHandleEvent = function(id, name, param)
         if (name == "select") then
             local entity = game.interface.getEntity(param)
             if (entity and entity.type == "CONSTRUCTION" and entity.fileName == "street/underpass_entry.con") then
