@@ -1,0 +1,37 @@
+function data()
+    return {
+        animations = {  },
+        subMeshes = {
+            {
+                indices = {
+                    normal = { count = 384, offset = 6048 },
+                    position = { count = 384, offset = 6048 },
+                    tangent = { count = 384, offset = 6048 },
+                    uv0 = { count = 384, offset = 6048 }
+                }
+            },
+            {
+                indices = {
+                    normal = { count = 24, offset = 6432 },
+                    position = { count = 24, offset = 6432 },
+                    tangent = { count = 24, offset = 6432 },
+                    uv0 = { count = 24, offset = 6432 }
+                }
+            },
+            {
+                indices = {
+                    normal = { count = 96, offset = 6456 },
+                    position = { count = 96, offset = 6456 },
+                    tangent = { count = 96, offset = 6456 },
+                    uv0 = { count = 96, offset = 6456 }
+                }
+            }
+        },
+        vertexAttr = {
+            normal = { count = 1512, numComp = 3, offset = 2520 },
+            position = { count = 1512, numComp = 3, offset = 0 },
+            tangent = { count = 2016, numComp = 4, offset = 4032 },
+            uv0 = { count = 1008, numComp = 2, offset = 1512 }
+        }
+    }
+end

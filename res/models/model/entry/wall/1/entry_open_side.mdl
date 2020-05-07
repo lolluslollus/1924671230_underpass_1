@@ -1,0 +1,54 @@
+function data()
+    return {
+        collider = {
+            params = {  },
+            type = "MESH"
+        },
+        lods = {
+            {
+                node = {
+                    children = {
+                        {
+                            materials = {
+                                "entry/wall/tiles.mtl",
+                                "entry/entry_concrete.mtl"
+                            },
+                            mesh = "entry/entry_open_side.msh",
+                            transf = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 }
+                        }
+                    },
+                    name = "RootNode",
+                    transf = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 }
+                },
+                static = true,
+                visibleFrom = 0,
+                visibleTo = 5000
+            }
+        },
+        metadata = {
+            transportNetworkProvider = {
+                laneLists = {
+                    {
+                        nodes = {
+                            {
+                                { 0, 5.2085, -3.9 },
+                                { -3.5, 0, 0 },
+                                4.8
+                            },
+                            {
+                                { -3.5, 5.2085, -3.9 },
+                                { -3.5, 0, 0 },
+                                4.8
+                            }
+                        },
+                        transportModes = {
+                            "PERSON"
+                        }
+                    }
+                },
+                terminals = {  }
+            }
+        },
+        version = 1
+    }
+end

@@ -1,0 +1,30 @@
+function data()
+    return {
+        collider = {
+            params = {  },
+            type = "MESH"
+        },
+        lods = {
+            {
+                node = {
+                    children = {
+                        {
+                            materials = {
+                                "entry/floor/honeycomb.mtl"
+                            },
+                            mesh = "entry/entry_central_floor.msh",
+                            transf = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 }
+                        }
+                    },
+                    name = "RootNode",
+                    transf = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 }
+                },
+                static = true,
+                visibleFrom = 0,
+                visibleTo = 5000
+            }
+        },
+        metadata = {  },
+        version = 1
+    }
+end

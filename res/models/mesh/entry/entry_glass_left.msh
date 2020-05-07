@@ -1,0 +1,53 @@
+function data()
+    return {
+        animations = {  },
+        subMeshes = {
+            {
+                indices = {
+                    normal = { count = 1992, offset = 93744 },
+                    position = { count = 1992, offset = 93744 },
+                    tangent = { count = 1992, offset = 93744 },
+                    uv0 = { count = 1992, offset = 93744 }
+                }
+            },
+            {
+                indices = {
+                    normal = { count = 132, offset = 95736 },
+                    position = { count = 132, offset = 95736 },
+                    tangent = { count = 132, offset = 95736 },
+                    uv0 = { count = 132, offset = 95736 }
+                }
+            },
+            {
+                indices = {
+                    normal = { count = 120, offset = 95868 },
+                    position = { count = 120, offset = 95868 },
+                    tangent = { count = 120, offset = 95868 },
+                    uv0 = { count = 120, offset = 95868 }
+                }
+            },
+            {
+                indices = {
+                    normal = { count = 5472, offset = 95988 },
+                    position = { count = 5472, offset = 95988 },
+                    tangent = { count = 5472, offset = 95988 },
+                    uv0 = { count = 5472, offset = 95988 }
+                }
+            },
+            {
+                indices = {
+                    normal = { count = 96, offset = 101460 },
+                    position = { count = 96, offset = 101460 },
+                    tangent = { count = 96, offset = 101460 },
+                    uv0 = { count = 96, offset = 101460 }
+                }
+            }
+        },
+        vertexAttr = {
+            normal = { count = 23436, numComp = 3, offset = 39060 },
+            position = { count = 23436, numComp = 3, offset = 0 },
+            tangent = { count = 31248, numComp = 4, offset = 62496 },
+            uv0 = { count = 15624, numComp = 2, offset = 23436 }
+        }
+    }
+end

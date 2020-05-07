@@ -1,0 +1,65 @@
+function data()
+return {
+	params = {
+		fade_out_range = {
+			fadeOutEndDist = 20000,
+			fadeOutStartDist = 10000,
+			
+		},
+		map_albedo = {
+			compressionAllowed = true,
+			fileName = "models/entry/albedo/concrete_tiles2.dds",
+			magFilter = "LINEAR",
+			minFilter = "LINEAR_MIPMAP_LINEAR",
+			mipmapAlphaScale = 0,
+			type = "TWOD",
+			wrapS = "REPEAT",
+			wrapT = "REPEAT",
+		},
+		map_metal_gloss_ao = {
+			compressionAllowed = true,
+			fileName = "models/entry/gloss_ao/concrete_tiles2.dds",
+			magFilter = "LINEAR",
+			minFilter = "LINEAR_MIPMAP_LINEAR",
+			mipmapAlphaScale = 0,
+			type = "TWOD",
+			wrapS = "REPEAT",
+			wrapT = "REPEAT",
+			
+		},
+		map_normal = {
+			compressionAllowed = true,
+			fileName = "models/entry/normal/concrete_tiles2.dds",
+			magFilter = "LINEAR",
+			minFilter = "LINEAR_MIPMAP_LINEAR",
+			mipmapAlphaScale = 0,
+			type = "TWOD",
+			wrapS = "REPEAT",
+			wrapT = "REPEAT",
+			
+		},
+		two_sided = {
+			twoSided = false,
+			
+		},
+		map_op_1 = {
+			fileName = "models/entry/op/black.dds",
+			magFilter = "LINEAR",
+			minFilter = "LINEAR_MIPMAP_LINEAR",
+		},
+		operation_1 = {
+			op = "MULTIPLICATION",
+			mode = "NORMAL",
+			scale = { 1.0, 1.0 },
+			opacity = -1025.0
+		}, 
+		polygon_offset = {
+			factor = -2.0,
+			units = -2.0,
+			forceDepthWrite = true,
+		}
+	},
+	type = "PHYSICAL_NRML_MAP_OP",
+	
+}
+end

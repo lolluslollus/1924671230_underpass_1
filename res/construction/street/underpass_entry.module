@@ -1,0 +1,181 @@
+local func = require "entry/func"
+local coor = require "entry/coor"
+local pipe = require "entry/pipe"
+local general = require "entry/general"
+
+local unpack = table.unpack
+local ma = math
+local pi = ma.pi
+
+local widthList = {2, 3, 4, 5, 6}
+
+local models = function(set)
+    local s = "entry/" .. (set.style or 1) .. "/"
+    local w = "entry/wall/" .. (set.wall or 1) .. "/"
+    local f = "entry/floor/" .. (set.floor or 1) .. "/"
+    return {
+        central = s .. "entry_central.mdl",
+        left = s .. "entry_left.mdl",
+        right = s .. "entry_right.mdl",
+        floor = {
+            central = f .. "entry_central_floor.mdl",
+            open = f .. "entry_open_side_floor.mdl",
+        },
+        wall = {
+            central = w .. "entry_central_wall.mdl",
+            closed = w .. "entry_closed_side.mdl",
+            open = w .. "entry_open_side.mdl",
+            left = w .. "entry_left_wall.mdl",
+            right = w .. "entry_right_wall.mdl"
+        }
+    }
+end
+
+local getModels = function(params, result, slotId)
+    local dz = 0
+    local width = widthList[(params.width or 1) + 1]
+    local transL = coor.trans(coor.xyz(-0.5 * width, 0, dz))
+    local transR = coor.trans(coor.xyz(0.5 * width, 0, dz))
+    local isLeftOpen, isRightOpen = 
+        unpack(
+            not (result and result.entrySide) and { true, true }
+            or result.entrySide[slotId])
+    
+    local models = models({wall = (params.wall or 0) + 1, floor = (params.floor or 0) + 1, style = (params.style or 0) + 1})
+    
+    local lanes = pipe.new *
+        {-width * 0.2, width * 0.2}
+        * pipe.map(function(w) return
+            {
+                {coor.xyz(w, -5.0, 0.0), coor.xyz(w, 0.0, -3.0)},
+                {coor.xyz(w, 0.0, -3.0), coor.xyz(w, 1.75, -3.0)},
+                {coor.xyz(w, 1.75, -3.0), coor.xyz(w, 3.417, -3.9)},
+                {coor.xyz(w, 3.417, -3.9), coor.xyz(w, 5.2085, -3.9)}
+            }
+        end)
+        * pipe.flatten()
+        * pipe.map(pipe.map(function(c) return c .. coor.transZ(dz) end))
+        * pipe.map(function(c) return general.unitLane(unpack(c)) end)
+        + func.map(
+            {
+                {-0.5, -0.2},
+                {-0.2, 0.2},
+                {0.2, 0.5},
+            },
+            function(w)
+                local tc = func.map(w, function(w) return coor.xyz(w * width, 5.2085, -3.9 + dz) end)
+                return general.unitLane(unpack(tc))
+            end
+    )
+    local linkingLanes = function(width)
+        local iw = 0.2 * width
+        local ow = width
+        return {
+            general.linkingLane(coor.xyz(-iw, -6, dz), coor.xyz(iw, -6, dz)),
+            general.linkingLane(coor.xyz(-ow, 3, dz), coor.xyz(ow, 3, dz)),
+            
+            general.unitLane(coor.xyz(iw, -5, dz), coor.xyz(iw, -6, dz)),
+            general.linkingLane(coor.xyz(iw, -6, dz), coor.xyz(ow, -6, dz)),
+            general.linkingLane(coor.xyz(ow, 3, dz), coor.xyz(ow, -6, dz)),
+            
+            general.unitLane(coor.xyz(-iw, -5, dz), coor.xyz(-iw, -6, dz)),
+            general.linkingLane(coor.xyz(-ow, -6, dz), coor.xyz(-iw, -6, dz)),
+            general.linkingLane(coor.xyz(-ow, 3, dz), coor.xyz(-ow, -6, dz))
+        }
+    end
+    
+    local lLanes = linkingLanes(width)
+    return pipe.new
+        / general.newModel(models.left, transL)
+        / general.newModel(models.right, transR)
+        / general.newModel(models.wall.left, transL)
+        / general.newModel(models.wall.right, transR)
+        / general.newModel(isLeftOpen and models.floor.open or models.floor.closed, transL)
+        / general.newModel(isLeftOpen and models.wall.open or models.wall.closed, transL)
+        / general.newModel(isRightOpen and models.floor.open or models.floor.closed, coor.rotZ(pi) * coor.transY(2 * 5.2085) * transR)
+        / general.newModel(isRightOpen and models.wall.open or models.wall.closed, coor.rotZ(pi) * coor.transY(2 * 5.2085) * transR)
+        * pipe.filter(pipe.select("id"))
+        + func.seqMap({1, width}, function(x) return general.newModel(models.central, coor.trans(coor.xyz(x - width * 0.5 - 0.5, 0, dz))) end)
+        + func.seqMap({1, width}, function(x) return general.newModel(models.wall.central, coor.trans(coor.xyz(x - width * 0.5 - 0.5, 0, dz))) end)
+        + func.seqMap({1, width}, function(x) return general.newModel(models.floor.central, coor.trans(coor.xyz(x - width * 0.5 - 0.5, 0, dz))) end)
+        + lanes
+        + lLanes
+end
+
+function data()
+    return {
+        availability = {
+            yearFrom = 0,
+            yearTo = 0,
+        },
+        buildMode = "SINGLE",
+        cost = {
+            price = 15000,
+        },
+        description = {
+            name = _("Underground Entry"),
+            description = _("An underground entry to a station"),
+            icon = "ui/construction/street/underpass_entry.tga"
+        },
+        category = {
+            categories = {"entry"},
+        },
+        type = "entry",
+        order = {
+            value = 260,
+        },
+        metadata = {
+            entry = true,
+        },
+        
+        updateFn = function(result, transform, tag, slotId, addModelFn, params)
+            local params = result.entryModules[slotId].params and result.entryModules[slotId].params or params
+            local _ = func.forEach(getModels(params, result, slotId), function(m) addModelFn(m.id, m.transf) end)
+            local dz = 0
+            local width = widthList[(params.width or 1) + 1]
+            
+            result.entryConnectors[#result.entryConnectors + 1] = {
+                coor.xyz(-3.5 - width * 0.5, 5.2085, -3.9 + dz) .. transform,
+                coor.xyz(3.5 + width * 0.5, 5.2085, -3.9 + dz) .. transform
+            }
+
+            if (params.isStation) then
+                table.insert(result.invoke[2], function()
+                    local mdl = func.with(
+                        general.newModel(
+                            "entry/signs/signs_entry_" .. tostring(width) .. ".mdl", 
+                            coor.trans(params.style == 2 and coor.xyz(0, 1.85, 1.8) or coor.xyz(0, -1, 1.8)) * transform
+                        ),
+                        {tag = tag}
+                    )
+                    table.insert(result.models, mdl)
+                end)
+            end
+            
+            local holeFace = general.surfaceOf(coor.xyz(width + 0.25, 6.7, 1), coor.xyz(0.0, -1.55, dz), transform)
+            local terrainFace = general.surfaceOf(coor.xyz(width + 1, 10, 1), coor.xyz(0.0, -2.25, dz), transform)
+            local aboveFace = general.surfaceOf(coor.xyz(width + 1, 5.25, 1), coor.xyz(0.0, 4.625, dz), transform)
+            local aboveFaceH = general.surfaceOf(coor.xyz(width + 7, 3, 1), coor.xyz(0.0, 7.25 - 1.5, dz), transform)
+            
+            result.terrainAlignmentLists[#result.terrainAlignmentLists + 1] = {
+                type = "EQUAL",
+                faces = {terrainFace}
+            }
+            
+            result.terrainAlignmentLists[#result.terrainAlignmentLists + 1] = {
+                type = "GREATER",
+                faces = {aboveFace, aboveFaceH}
+            }
+            
+            result.groundFaces[#result.groundFaces + 1] = {face = holeFace, modes = {{type = "FILL", key = "hole.lua"}}}
+            -- result.groundFaces[#result.groundFaces + 1] = {face = terrainFace, modes = {{type = "FILL", key = "town_concrete.lua"}}}
+            -- result.groundFaces[#result.groundFaces + 1] = {face = terrainFace, modes = {{type = "FILL", key = "town_concrete.lua"}}}
+            -- result.groundFaces[#result.groundFaces + 1] = {face = terrainFace, modes = {{type = "STROKE_OUTER", key = "town_concrete_border.lua"}}}
+        end,
+        
+        getModelsFn = function(params)
+            return getModels(params, nil)
+        end
+    }
+
+end

@@ -1,0 +1,151 @@
+local func = require "entry/func"
+local coor = require "entry/coor"
+local pipe = require "entry/pipe"
+local general = require "entry/general"
+
+local unpack = table.unpack
+
+local widthList = {2, 3, 4, 5, 6}
+
+function data()
+    local constructionTemplates =
+        {
+            {
+                constructionType = "STREET_CONSTRUCTION",
+                type = "DYNAMIC",
+                availability = {
+                    yearFrom = 0,
+                    yearTo = 0
+                },
+                description = {
+                    name = _("MENU_NAME"),
+                    description = _("MENU_DESC"),
+                    icon = "ui/construction/street/underpass_entry.tga"
+                },
+                data = {
+                    params = {}
+                },
+            }
+        }
+    
+    local createTemplateFn = function(_)
+        local result = {
+            [1] = "street/underpass_entry.module",
+        }       
+        return result
+    end
+    
+    local upgradeFn = function(_) end
+    
+    local updateFn = function(params)
+        local result = {
+            entryConnectors = {},
+            colliders = {},
+            terrainAlignmentLists = {},
+            groundFaces = {},
+            terminalGroups = {},
+            stations = {},
+            dependentSlots = {},
+            edgeLists = {},
+            slotConfig = {},
+            occupied = {{}, {}, {}, {}},
+            cost = 0,
+            models = pipe.new * {},
+            entryModules = params.modules
+        }
+        
+        result.slots = func.mapi(params.modules, function(e, i)
+            return {
+                id = i,
+                transf = e.transf or coor.I(),
+                type = "entry",
+                spacing = {0, 0, 0, 0}
+            }
+        end)
+
+        result.terminateConstructionHook = function()
+            local entryConn = {}
+            local entrySide = {}
+            for i = 1, #result.entryConnectors do
+                entrySide[i] = {false, false}
+                for j = 1, i - 1 do
+                    local cl = result.entryConnectors[i]
+                    local cr = result.entryConnectors[j]
+                    local dist = {}
+                    for u = 1, 2 do
+                        for v = 1, 2 do
+                            dist[#dist+1] = {
+                                conn = general.unitLane(cl[u], cr[v]),
+                                distance = (cl[u] - cr[v]):length2(),
+                                info = {{i, u}, {j, v}}
+                            }
+                        end
+                    end
+                    entryConn[#entryConn+1] = func.min(dist, function(l, r) return l.distance < r.distance end)
+                end
+            end
+            
+            for i = 1, #entryConn do
+                local info = entryConn[i].info
+                entrySide[info[1][1]][info[1][2]] = true
+                entrySide[info[2][1]][info[2][2]] = true
+                result.models[#result.models + 1] = entryConn[i].conn
+            end
+        end
+        return result
+    end
+    
+    return {
+        type = "STREET_CONSTRUCTION",
+        description = {
+            name = _("Underpass Entry"),
+            description = _("An underpass entry")
+        },
+        availability = {
+            yearFrom = 0,
+            yearTo = 0
+        },
+        order = 1000,
+        constructionTemplates = constructionTemplates,
+        createTemplateFn = createTemplateFn,
+        params = {
+            {
+                key = "style",
+                name = _("MENU_FENCE_STYLE"),
+                values = {_("MENU_FENCE_GLASS"), _("MENU_FENCE_IRON"), _("MENU_FENCE_CONCR")},
+                defaultIndex = 0
+            },
+            {
+                key = "wall",
+                name = _("MENU_WALL"),
+                values = {
+                    "ui/construction/street/tiles.tga",
+                    "ui/construction/street/tiles_classic.tga"
+                },
+                uiType = "ICON_BUTTON",
+                defaultIndex = 0
+            },
+            {
+                key = "floor",
+                name = _("MENU_FLOOR_STYLE"),
+                values = {
+                    "ui/construction/street/marble.tga",
+                    "ui/construction/street/honeycomb.tga",
+                    "ui/construction/street/marble_geometric.tga",
+                    "ui/construction/street/concrete_tiles2.tga",
+                    "ui/construction/street/asphalt.tga"
+                },
+                uiType = "ICON_BUTTON",
+                defaultIndex = 0
+            },
+            {
+                key = "width",
+                name = _("MENU_WIDTH"),
+                values = func.map(widthList, tostring),
+                defaultIndex = 1
+            },
+        },
+        upgradeFn = upgradeFn,
+        updateFn = updateFn
+    }
+end

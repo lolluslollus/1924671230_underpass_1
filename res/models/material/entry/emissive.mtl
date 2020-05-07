@@ -1,0 +1,33 @@
+function data()
+    return {
+        params = {
+            fade_out_range = {
+                fadeOutEndDist = 20000,
+                fadeOutStartDist = 10000,			
+            },
+            map_emissive = {
+                compressionAllowed = true,
+                fileName = "models/entry/emissive.hdr",
+                magFilter = "LINEAR",
+                minFilter = "LINEAR_MIPMAP_LINEAR",
+                mipmapAlphaScale = 0,
+                type = "TWOD",
+                wrapS = "REPEAT",
+                wrapT = "REPEAT",			
+            },
+            polygon_offset = {
+                factor = 0.0,
+                units = 0.0,
+                
+            },
+            two_sided = {
+                twoSided = false,
+                
+            },
+            light_scale = {
+                lightScale = 10.0           -- scale RGB-texture-value of emissive materials
+            }
+        },
+        type = "EMISSIVE",	
+    }
+    end
