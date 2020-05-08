@@ -390,6 +390,8 @@ local script = {
         end
     end,
     guiUpdate = function()
+        -- print('LOLLO guiUpdate') -- this happens many times per second
+        -- require('debugger')()
         if state.linkEntries then
             if (#state.items < 1) then
                 closeWindow()
@@ -401,9 +403,11 @@ local script = {
                 require('luadump')(true)(state.addedItems)
                 print('LOLLO state.items = ')
                 require('luadump')(true)(state.items)
+                -- require('debugger')()
                 if (#state.addedItems < #state.items) then -- LOLLO
                 -- if (#state.addedItems <= #state.items) then
                     for i = #state.addedItems + 1, #state.items do
+                        print('LOLLO about to add entry = ', tostring(state.items[i]))
                         addEntry(state.items[i])
                     end
                 elseif (#state.addedItems > #state.items) then
