@@ -61,7 +61,6 @@ local addEntry = function(id)
     if (state.linkEntries) then
         local entity = game.interface.getEntity(id)
         if (entity) then
-            -- xpcall(f: function, msgh: function, arg1: any, ...)
             xpcall(function()
                 local isEntry = entity.fileName == "street/underpass_entry.con"
                 local isStation = entity.fileName == "station/rail/mus.con"
@@ -272,6 +271,8 @@ local buildStation = function(entries, stations, built)
             params = func.with(pure(e.params), {isFinalized = 1}),
             transf = e.transf
         })
+        print('LOLLO params for station = ') -- they are fine
+        require('luadump')(true)(func.with(pure(e.params), {isFinalized = 1}))
     end
     
     for _, e in ipairs(entries) do
@@ -309,6 +310,7 @@ local buildStation = function(entries, stations, built)
     local newId = game.interface.upgradeConstruction(
         ref.id,
         "station/rail/mus.con",
+        -- LOLLO this is like ellipsis in JS, it works fine
         func.with(
             pure(ref.params),
             {
@@ -324,6 +326,10 @@ local buildStation = function(entries, stations, built)
         end
         state.builtLevelCount[newId] = #groups
         state.items = func.filter(state.items, function(e) return not func.contains(state.checkedItems, e) end)
+        print('LOLLO state.items = ')
+        require('luadump')(true)(state.items)
+        print('LOLLO state.checkedItems = ')
+        require('luadump')(true)(state.checkedItems)
         state.checkedItems = {}
         state.stations = func.filter(state.stations, function(e) return func.contains(state.items, e) end)
         state.entries = func.filter(state.entries, function(e) return func.contains(state.items, e) end)
@@ -389,7 +395,14 @@ local script = {
                 closeWindow()
                 state.addedItems = {}
             else
-                if (#state.addedItems < #state.items) then
+                -- LOLLO TODO not all things can be connected with all other things.
+                -- LOLLO TODO this is dodgy: it does not account for the sequence.
+                print('LOLLO state.addedItems = ')
+                require('luadump')(true)(state.addedItems)
+                print('LOLLO state.items = ')
+                require('luadump')(true)(state.items)
+                if (#state.addedItems < #state.items) then -- LOLLO
+                -- if (#state.addedItems <= #state.items) then
                     for i = #state.addedItems + 1, #state.items do
                         addEntry(state.items[i])
                     end
@@ -407,6 +420,7 @@ local script = {
     end,
     handleEvent = function(src, id, name, param)
         if (id == "__underpassEvent__") then
+            print('LOLLO event name = ', name)
             -- LOLLO TODO renew names in state. Cannot be done from game.interface, the game won't allow it
             -- print('LOLLO state = ')
             -- require('luadump')(true)(state)
@@ -500,6 +514,7 @@ local script = {
                     buildStation(entries, stations)
                 end
             elseif (name == "select") then
+                -- LOLLO TODO here, it could be that it fails to build the link
                 if not func.contains(state.built, param.id) then
                     state.items[#state.items + 1] = param.id
                     state.stations[#state.stations + 1] = param.id
@@ -507,6 +522,7 @@ local script = {
                     state.builtLevelCount[param.id] = param.nbGroup
                 end
             elseif (name == "window.close") then
+                -- LOLLO TODO this is also funny
                 state.items = func.filter(state.items, function(i) return not func.contains(state.built, i) or func.contains(state.checkedItems, i) end)
                 state.built = func.filter(state.built, function(b) return func.contains(state.checkedItems, b) end)
             end
@@ -525,7 +541,8 @@ local script = {
                 local cons = game.interface.getEntities({pos = entity.pos, radius = 9999}, {type = "CONSTRUCTION", includeData = true, fileName = "station/rail/mus.con"})
                 for _, s in ipairs(entity.stations) do
                     for _, c in pairs(cons) do
-                        if c.params and c.params.isFinalized == 1 and func.contains(c.stations, s) then
+                        if c.params and c.params.isFinalized == 1 and func.contains(c.stations, s) then -- LOLLO check this
+                        -- if c.params and func.contains(c.stations, s) then
                             lastVisited = c.id
                             nbGroup = #(func.filter(func.keys(decomp(c.params)), function(g) return g < 9 end))
                         elseif func.contains(state.items, c.id) then
@@ -553,13 +570,6 @@ local script = {
                     local con = toAdd[i]
                     if (con.fileName == [[street/underpass_entry.con]]) then
                         shaderWarning()
-                        -- LOLLO TODO do this better, like the station
-                        -- local newId = nil
-                        -- for keyy, _ in pairs(param.data.entity2tn) do
-                        --     if newId == nil then
-                        --         newId = keyy
-                        --     end
-                        -- end
 
                         -- get the id
                         local newId = nil
