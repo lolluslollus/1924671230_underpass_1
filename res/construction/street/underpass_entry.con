@@ -39,7 +39,9 @@ function data()
     local upgradeFn = function(_) print('LOLLO underpass_entry upgradeFn starting') end
     
     local updateFn = function(params)
-        print('LOLLO underpass_entry updateFn starting') 
+        print('LOLLO underpass_entry updateFn starting with params = ')
+        require('luadump')(true)(params)
+
         local result = {
             entryConnectors = {},
             colliders = {},
