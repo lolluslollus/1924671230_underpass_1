@@ -3,7 +3,7 @@ local func = require "entry/func"
 local coor = require "entry/coor"
 local arrayUtils = require('/entry/lolloArrayUtils')
 
-local _maxDistanceForConnectedItems = 160.0
+local _maxDistanceForConnectedItems = 250.0
 
 local function getGlobalState()
     return game._underpassGlobalState or {}
@@ -100,7 +100,7 @@ local addEntry = function(id)
     if (state.linkEntries) then
         local entity = game.interface.getEntity(id)
         if (entity) then
-            -- xpcall(function()
+            xpcall(function()
                 local isEntry = entity.fileName == "street/underpass_entry.con"
                 local isStation = entity.fileName == "station/rail/mus.con"
                 local isBuilt = isStation and entity.params and entity.params.isFinalized == 1
@@ -160,9 +160,9 @@ local addEntry = function(id)
                     state.linkEntries.layout:addItem(comp)
                     state.addedItems[#state.addedItems + 1] = id
                 end
-        --     end,
-        --     myErrorHandlerShort
-        -- )
+            end,
+            myErrorHandlerShort
+        )
         end
     end
 end
@@ -455,37 +455,37 @@ local buildUnderpass = function(incomingEntries)
     print('LOLLO incomingEntries before building underpass = ')
     require('luadump')(true)(incomingEntries)
 
-    local latestEntry = {}
-    local olderEntries = {}
+    local leadingEntry = {}
+    local otherEntries = {}
     for i, ent in ipairs(incomingEntries) do
-        if latestEntry.params == nil and ent.params.modules[1].params == nil then
-            latestEntry = ent
+        if leadingEntry.params == nil and ent.params.modules[1].params == nil then
+            leadingEntry = ent
         else
-            olderEntries[#olderEntries + 1] = ent
+            otherEntries[#otherEntries + 1] = ent
         end
     end
 
-    local vecRef, rotRef, _ = coor.decomposite(latestEntry.transf)
+    local vecRef, rotRef, _ = coor.decomposite(leadingEntry.transf)
     local iRot = coor.inv(cov(rotRef))
     -- bulldoze the older entries, the new one will be the final construction
-    for i, ent in pairs(olderEntries) do
+    for i, ent in pairs(otherEntries) do
         game.interface.bulldoze(ent.id)
     end
 
     local modules = {}
 
-    local vec, rot, _ = coor.decomposite(latestEntry.transf)
+    local vec, rot, _ = coor.decomposite(leadingEntry.transf)
     modules[#modules + 1] = {
         metadata = {entry = true},
         name = "street/underpass_entry.module",
-        params = cloneWoutModulesAndSeed(latestEntry.params),
+        params = cloneWoutModulesAndSeed(leadingEntry.params),
         transf = iRot * rot * coor.trans((vec - vecRef) .. iRot),
         variant = 0,
     }
 
-    for i, ent in ipairs(olderEntries) do
+    for i, ent in ipairs(otherEntries) do
         for ii, modu in pairs(ent.params.modules) do
-            -- local deltaPosVec = {x =  - latestEntry.position[1] + ent.position[1], y = - latestEntry.position[2] + ent.position[2], z = - latestEntry.position[3] + ent.position[3]}
+            -- local deltaPosVec = {x =  - leadingEntry.position[1] + ent.position[1], y = - leadingEntry.position[2] + ent.position[2], z = - leadingEntry.position[3] + ent.position[3]}
             local vec, rot, _ = coor.decomposite(ent.transf)
             modules[#modules + 1] = {
                 metadata = {entry = true},
@@ -498,7 +498,7 @@ local buildUnderpass = function(incomingEntries)
     end
 
     -- local newParams = func.with(
-    --     cloneWoutModulesAndSeed(latestEntry.params),
+    --     cloneWoutModulesAndSeed(leadingEntry.params),
     --     {
     --         modules = func.map(incomingEntries,
     --             function(entry)
@@ -512,14 +512,14 @@ local buildUnderpass = function(incomingEntries)
     --                 }
     --             end)
     --     })
-    local newParams = cloneWoutModulesAndSeed(latestEntry.params)
+    local newParams = cloneWoutModulesAndSeed(leadingEntry.params)
     newParams.modules = modules
        
     print('LOLLO entry newParams = ')
     require('luadump')(true)(newParams)
 
     local newId = game.interface.upgradeConstruction(
-        latestEntry.id,
+        leadingEntry.id,
         "street/underpass_entry.con",
         newParams
     )
@@ -675,20 +675,20 @@ local script = {
                             -- print('LOLLO vv = ', vv)
                             -- require('luadump')(true)(vv)
                             if vv.fileName == 'street/underpass_entry.con' then
-                                arrayUtils.addUnique(state.entries, vv.id or ii) -- LOLLO added this
-                                arrayUtils.addUnique(state.checkedItems, vv.id or ii) -- LOLLO added this
-                                arrayUtils.addUnique(state.items, vv.id or ii) -- LOLLO added this
-                                -- state.entries[#state.entries + 1] = vv.id or ii -- LOLLO added this
-                                -- state.checkedItems[#state.checkedItems + 1] = vv.id or ii -- LOLLO added this
-                                -- state.items[#state.items + 1] = vv.id or ii -- LOLLO added this
+                                -- arrayUtils.addUnique(state.entries, vv.id or ii) -- LOLLO added this
+                                -- arrayUtils.addUnique(state.checkedItems, vv.id or ii) -- LOLLO added this
+                                -- arrayUtils.addUnique(state.items, vv.id or ii) -- LOLLO added this
+                                state.entries[#state.entries + 1] = vv.id -- LOLLO added this
+                                state.checkedItems[#state.checkedItems + 1] = vv.id -- LOLLO added this
+                                state.items[#state.items + 1] = vv.id -- LOLLO added this
                                 relevantNearbyEntities[#relevantNearbyEntities + 1] = {[ii] = vv}
                             elseif vv.fileName == 'station/rail/mus.con' then
-                                arrayUtils.addUnique(state.stations, vv.id or ii) -- LOLLO added this
-                                arrayUtils.addUnique(state.checkedItems, vv.id or ii) -- LOLLO added this
-                                arrayUtils.addUnique(state.items, vv.id or ii) -- LOLLO added this
-                                -- state.stations[#state.stations + 1] = vv.id or ii -- LOLLO added this
-                                -- state.checkedItems[#state.checkedItems + 1] = vv.id or ii -- LOLLO added this
-                                -- state.items[#state.items + 1] = vv.id or ii -- LOLLO added this
+                                -- arrayUtils.addUnique(state.stations, vv.id or ii) -- LOLLO added this
+                                -- arrayUtils.addUnique(state.checkedItems, vv.id or ii) -- LOLLO added this
+                                -- arrayUtils.addUnique(state.items, vv.id or ii) -- LOLLO added this
+                                state.stations[#state.stations + 1] = vv.id -- LOLLO added this
+                                state.checkedItems[#state.checkedItems + 1] = vv.id -- LOLLO added this
+                                state.items[#state.items + 1] = vv.id -- LOLLO added this
                                 relevantNearbyEntities[#relevantNearbyEntities + 1] = {[ii] = vv}
                             end
                         end
