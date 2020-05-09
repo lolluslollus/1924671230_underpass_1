@@ -3,6 +3,8 @@ local func = require "entry/func"
 local coor = require "entry/coor"
 local arrayUtils = require('/entry/lolloArrayUtils')
 
+local _maxDistanceForConnectedItems = 160
+
 local function getGlobalState()
     return game._underpassGlobalState or {}
 end
@@ -68,7 +70,7 @@ local cov = function(m)
     end)
 end
 
-local pureWoutModulesAndSeed = function(pa)
+local cloneWoutModulesAndSeed = function(pa)
     local params = {}
     for key, value in pairs(pa) do
         if (key ~= "seed" and key ~= "modules") then
@@ -278,19 +280,18 @@ local shaderWarning = function()
     end
 end
 
-local buildStation = function(incomingEntries, stations, built)
+local buildStation = function(newEntries, stations, built)
     print('LOLLO state before building station = ')
     require('luadump')(true)(state)
     print('LOLLO stations before building station = ')
     require('luadump')(true)(stations)
+    print('LOLLO newEntries before building station = ')
+    require('luadump')(true)(newEntries)
 
     local ref = built and #built > 0 and built[1] or stations[1]
 
     local vecRef, rotRef, _ = coor.decomposite(ref.transf)
     local iRot = coor.inv(cov(rotRef))
-    
-    local groups = {}
-    local newEntries = {}
     
     -- if (built and #built > 0) then
     --     for _, b in ipairs(built) do
@@ -301,7 +302,7 @@ local buildStation = function(incomingEntries, stations, built)
     --             if (gId == 9) then
     --                 for _, m in ipairs(g.modules) do
     --                     m.transf = coor.I() * m.transf * b.transf
-    --                     table.insert(newEntries, m)
+    --                     table.insert(newEntriesModules, m)
     --                 end
     --             else
     --                 g.transf = coor.I() * g.transf * b.transf
@@ -310,11 +311,12 @@ local buildStation = function(incomingEntries, stations, built)
     --         end
     --     end
     -- end
-    
+
+    local groups = {}
     for _, e in ipairs(stations) do
         table.insert(groups, {
             modules = e.params.modules,
-            params = func.with(pureWoutModulesAndSeed(e.params), {isFinalized = 1}),
+            params = func.with(cloneWoutModulesAndSeed(e.params), {isFinalized = 1}),
             transf = e.transf
         })
     end
@@ -322,35 +324,51 @@ local buildStation = function(incomingEntries, stations, built)
     -- print('LOLLO groups = ')
     -- require('luadump')(true)(groups)
 
-    for _, ent in ipairs(incomingEntries) do
-        local ent = {
-            metadata = {entry = true},
-            name = "street/underpass_entry.module",
-            variant = 0,
-            transf = ent.transf,
-            params = func.with(pureWoutModulesAndSeed(ent.params), {isStation = true})
-        }
-        table.insert(newEntries, ent)
+    local newEntriesModules = {}
+    for _, ent in ipairs(newEntries) do
+        -- local ent = {
+        --     metadata = {entry = true},
+        --     name = "street/underpass_entry.module",
+        --     variant = 0,
+        --     transf = ent.transf,
+        --     params = func.with(cloneWoutModulesAndSeed(ent.params), {isStation = true})
+        -- }
+        local vec, rot, _ = coor.decomposite(ent.transf)
+        for _, modu in pairs(ent.params.modules) do
+            local transf = iRot * rot * coor.trans((vec - vecRef) .. iRot) * (modu.transf or iRot)
+            newEntriesModules[#newEntriesModules + 1] =
+                {
+                    metadata = {entry = true},
+                    name = "street/underpass_entry.module",
+                    params = func.with(cloneWoutModulesAndSeed(ent.params), {isStation = true}),
+                    transf = transf,
+                    variant = 0,
+                }
+        end
     end
-    -- LOLLO TODO make two underpasses, connect them, then make a station.
-    -- click an underpass and connect it to the station in the popup. The second underpass disappears.
+
+    print('LOLLO newEntriesModules before building station = ')
+    require('luadump')(true)(newEntriesModules)
+
     -- LOLLO TODO make two stations nearby. Make one underpass and connect it to both. One of the stations disappears.
     local modules = {}
-    -- put all the modules of all stations into one, except the entries, which are not in the groups
+    -- put all the modules of all stations into one, except the non-finalised entries, which are not in the groups
     for i, gro in ipairs(groups) do
         local vec, rot, _ = coor.decomposite(gro.transf)
         local transf = iRot * rot * coor.trans((vec - vecRef) .. iRot)
         for slotId, modu in pairs(gro.modules) do
-            if modu.params and modu.params.isFinalized == 1 then
-                modu.params = gro.params
-                -- modu.transf = transf
-                modules[slotId] = modu
-            else
-                modu.params = gro.params
-                modu.transf = transf
-                modules[slotId + i * 10000] = modu -- only change the index the first time
-                -- modules[slotId + i * 10000].params.isFinalized = 1
-            end
+            -- if modu.name ~= 'street/underpass_entry.module' then
+                if modu.params and modu.params.isFinalized == 1 then
+                    -- modu.params = gro.params
+                    -- modu.transf = transf
+                    modules[slotId] = modu
+                else
+                    modu.params = gro.params
+                    modu.transf = transf
+                    modules[slotId + i * 10000] = modu -- only change the index the first time
+                    modules[slotId + i * 10000].params.isFinalized = 1 -- unnecessary but safer
+                end
+            -- end
         end
     end
     
@@ -358,7 +376,7 @@ local buildStation = function(incomingEntries, stations, built)
     require('luadump')(true)(modules)
 
     -- LOLLO this replaces previous entries
-    -- for i, e in ipairs(newEntries) do
+    -- for i, e in ipairs(newEntriesModules) do
     --     local vec, rot, _ = coor.decomposite(e.transf)
     --     e.transf = iRot * rot * coor.trans((vec - vecRef) .. iRot)
     --     modules[90000 + i] = e
@@ -367,27 +385,29 @@ local buildStation = function(incomingEntries, stations, built)
     local i = 1
     if type(groups) == 'table' and type(groups[1]) == 'table' then
         while groups[1].modules[90000 + i] ~= nil do
-            print('LOLLO new module index = ', 90000 + i)
+            print('LOLLO old module index = ', 90000 + i)
             modules[90000 + i] = groups[1].modules[90000 + i]
             modules[90000 + i].params.isFinalized = 1
             i = i + 1
         end
     
         local newEntryFirstModuleId = i - 1
-        for iii, ent in ipairs(newEntries) do
-            local vec, rot, _ = coor.decomposite(ent.transf)
-            ent.transf = iRot * rot * coor.trans((vec - vecRef) .. iRot)
+        for iii = 1, #newEntriesModules do
+            local modu = newEntriesModules[iii]
+            -- local vec, rot, _ = coor.decomposite(modu.transf)
+            -- modu.transf = iRot * rot * coor.trans((vec - vecRef) .. iRot)
             print('LOLLO new module index = ', 90000 + iii + newEntryFirstModuleId)
-            modules[90000 + iii + newEntryFirstModuleId] = ent
+            modules[90000 + iii + newEntryFirstModuleId] = cloneWoutModulesAndSeed(modu)
             modules[90000 + iii + newEntryFirstModuleId].params.isFinalized = 1
         end    
     else
         print('LOLLO WARNING: type(groups) =', type(groups), '#groups == ', #groups)
-        for iii, ent in ipairs(newEntries) do
-            local vec, rot, _ = coor.decomposite(ent.transf)
-            ent.transf = iRot * rot * coor.trans((vec - vecRef) .. iRot)
-            print('LOLLO new module index = ', 90000 + iii)
-            modules[90000 + iii] = ent
+        for iii = 1, #newEntriesModules do
+            local modu = newEntriesModules[iii]
+            -- local vec, rot, _ = coor.decomposite(modu.transf)
+            -- modu.transf = iRot * rot * coor.trans((vec - vecRef) .. iRot)
+            print('LOLLO warning module index = ', 90000 + iii)
+            modules[90000 + iii] = cloneWoutModulesAndSeed(modu)
             modules[90000 + iii].params.isFinalized = 1
         end    
     end
@@ -398,16 +418,16 @@ local buildStation = function(incomingEntries, stations, built)
     -- bulldoze entries, which have been turned into station modules. Also bulldoze some other stuff that I don't understand.
     if (built and #built > 1) then local _ = built * pipe.range(2, #built) * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze) end
     local _ = stations * (built and pipe.noop() or pipe.range(2, #stations)) * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
-    local _ = incomingEntries * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
+    local _ = newEntries * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
     
     local newId = game.interface.upgradeConstruction(
         ref.id,
         "station/rail/mus.con",
         -- LOLLO this is like ellipsis in JS, it works fine
         func.with(
-            pureWoutModulesAndSeed(ref.params),
+            cloneWoutModulesAndSeed(ref.params),
             {
-                modules = pureWoutModulesAndSeed(modules),
+                modules = cloneWoutModulesAndSeed(modules),
                 isFinalized = 1
             })
     )
@@ -458,7 +478,7 @@ local buildUnderpass = function(incomingEntries)
     modules[#modules + 1] = {
         metadata = {entry = true},
         name = "street/underpass_entry.module",
-        params = pureWoutModulesAndSeed(latestEntry.params),
+        params = cloneWoutModulesAndSeed(latestEntry.params),
         transf = iRot * rot * coor.trans((vec - vecRef) .. iRot),
         variant = 0,
     }
@@ -470,7 +490,7 @@ local buildUnderpass = function(incomingEntries)
             modules[#modules + 1] = {
                 metadata = {entry = true},
                 name = 'street/underpass_entry.module',
-                params = pureWoutModulesAndSeed(ent.params),
+                params = cloneWoutModulesAndSeed(ent.params),
                 transf = iRot * rot * coor.trans((vec - vecRef) .. iRot) * (modu.transf or iRot), -- * coor.trans(deltaPosVec) ,
                 variant = 0
             }
@@ -478,7 +498,7 @@ local buildUnderpass = function(incomingEntries)
     end
 
     -- local newParams = func.with(
-    --     pureWoutModulesAndSeed(latestEntry.params),
+    --     cloneWoutModulesAndSeed(latestEntry.params),
     --     {
     --         modules = func.map(incomingEntries,
     --             function(entry)
@@ -488,11 +508,11 @@ local buildUnderpass = function(incomingEntries)
     --                     name = "street/underpass_entry.module",
     --                     variant = 0,
     --                     transf = iRot * rot * coor.trans((vec - vecRef) .. iRot),
-    --                     params = pureWoutModulesAndSeed(entry.params)
+    --                     params = cloneWoutModulesAndSeed(entry.params)
     --                 }
     --             end)
     --     })
-    local newParams = pureWoutModulesAndSeed(latestEntry.params)
+    local newParams = cloneWoutModulesAndSeed(latestEntry.params)
     newParams.modules = modules
        
     print('LOLLO entry newParams = ')
@@ -628,7 +648,7 @@ local script = {
                 -- game.interface.upgradeConstruction(
                 --     param.id,
                 --     e.fileName,
-                --     func.with(pureWoutModulesAndSeed(e.params), {modules = e.modules, isNotPreview = true})
+                --     func.with(cloneWoutModulesAndSeed(e.params), {modules = e.modules, isNotPreview = true})
                 -- )
 
                 if param and param.id then
@@ -637,7 +657,7 @@ local script = {
                         print('LOLLO newEntity = ')
                         require('luadump')(true)(newEntity)
                         local nearbyEntities = game.interface.getEntities(
-                            {pos = newEntity.position, radius = 250},
+                            {pos = newEntity.position, radius = _maxDistanceForConnectedItems},
                             {type = 'CONSTRUCTION', includeData = true}
                         )
                         local relevantNearbyEntities = {}
