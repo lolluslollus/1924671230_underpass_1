@@ -3,7 +3,7 @@ local func = require "entry/func"
 local coor = require "entry/coor"
 local arrayUtils = require('/entry/lolloArrayUtils')
 
-local _maxDistanceForConnectedItems = 160
+local _maxDistanceForConnectedItems = 160.0
 
 local function getGlobalState()
     return game._underpassGlobalState or {}
@@ -100,7 +100,7 @@ local addEntry = function(id)
     if (state.linkEntries) then
         local entity = game.interface.getEntity(id)
         if (entity) then
-            xpcall(function()
+            -- xpcall(function()
                 local isEntry = entity.fileName == "street/underpass_entry.con"
                 local isStation = entity.fileName == "station/rail/mus.con"
                 local isBuilt = isStation and entity.params and entity.params.isFinalized == 1
@@ -118,7 +118,7 @@ local addEntry = function(id)
                     print('LOLLO layoutId = ', layoutId)
                     -- print('LOLLO entity = ')
                     -- require('luadump')(true)(entity)
-                    local hLayout = gui.boxLayout_create(layoutId .. "layout", "HORIZONTAL") -- LOLLO TODO this dumps
+                    local hLayout = gui.boxLayout_create(layoutId .. "layout", "HORIZONTAL")
                     local label = gui.textView_create(layoutId .. "label", isEntry and tostring(id) or entity.name .. (isBuilt and _("BUILT") or ""), 300)
                     local icon = gui.imageView_create(layoutId .. "icon",
                         isEntry and
@@ -160,9 +160,9 @@ local addEntry = function(id)
                     state.linkEntries.layout:addItem(comp)
                     state.addedItems[#state.addedItems + 1] = id
                 end
-            end,
-            myErrorHandlerShort
-        )
+        --     end,
+        --     myErrorHandlerShort
+        -- )
         end
     end
 end
@@ -285,8 +285,8 @@ local buildStation = function(newEntries, stations, built)
     require('luadump')(true)(state)
     print('LOLLO stations before building station = ')
     require('luadump')(true)(stations)
-    print('LOLLO newEntries before building station = ')
-    require('luadump')(true)(newEntries)
+    -- print('LOLLO newEntries before building station = ')
+    -- require('luadump')(true)(newEntries)
 
     local ref = built and #built > 0 and built[1] or stations[1]
 
@@ -347,28 +347,28 @@ local buildStation = function(newEntries, stations, built)
         end
     end
 
-    print('LOLLO newEntriesModules before building station = ')
-    require('luadump')(true)(newEntriesModules)
+    -- print('LOLLO newEntriesModules before building station = ')
+    -- require('luadump')(true)(newEntriesModules)
 
     -- LOLLO TODO make two stations nearby. Make one underpass and connect it to both. One of the stations disappears.
+    -- LOLLO TODO add a platform: the connections will disappear
     local modules = {}
     -- put all the modules of all stations into one, except the non-finalised entries, which are not in the groups
     for i, gro in ipairs(groups) do
         local vec, rot, _ = coor.decomposite(gro.transf)
         local transf = iRot * rot * coor.trans((vec - vecRef) .. iRot)
         for slotId, modu in pairs(gro.modules) do
-            -- if modu.name ~= 'street/underpass_entry.module' then
-                if modu.params and modu.params.isFinalized == 1 then
-                    -- modu.params = gro.params
-                    -- modu.transf = transf
-                    modules[slotId] = modu
-                else
-                    modu.params = gro.params
-                    modu.transf = transf
-                    modules[slotId + i * 10000] = modu -- only change the index the first time
-                    modules[slotId + i * 10000].params.isFinalized = 1 -- unnecessary but safer
-                end
-            -- end
+            -- if modu.params and modu.params.isFinalized == 1 then
+            if gro.params and gro.params.isFinalized == 1 then
+                -- modu.params = gro.params
+                -- modu.transf = transf
+                modules[slotId] = modu
+            else
+                modu.params = gro.params
+                modu.transf = transf
+                modules[slotId + i * 10000] = modu -- only change the index the first time
+                modules[slotId + i * 10000].params.isFinalized = 1 -- unnecessary but safer
+            end
         end
     end
     
@@ -442,7 +442,7 @@ local buildStation = function(newEntries, stations, built)
         state.checkedItems = {}
         state.stations = func.filter(state.stations, function(e) return func.contains(state.items, e) end)
         state.entries = func.filter(state.entries, function(e) return func.contains(state.items, e) end)
-        state.built = func.filter(state.built, function(e) return func.contains(state.items, e) end)
+        -- state.built = func.filter(state.built, function(e) return func.contains(state.items, e) end)
     end
 
     print('LOLLO state after building station = ')
@@ -562,7 +562,6 @@ local script = {
                 closeWindow()
                 state.addedItems = {}
             else
-                -- LOLLO TODO not all things can be connected with all other things.
                 -- LOLLO TODO this is dodgy: it does not account for the sequence.
                 -- print('LOLLO state.addedItems = ')
                 -- require('luadump')(true)(state.addedItems)
@@ -642,7 +641,7 @@ local script = {
                 state.checkedItems = func.filter(state.checkedItems, function(e) return not func.contains(param, e) end)
                 state.entries = func.filter(state.entries, function(e) return not func.contains(param, e) end)
                 state.stations = func.filter(state.stations, function(e) return not func.contains(param, e) end)
-                state.built = func.filter(state.built, function(e) return not func.contains(param, e) end)
+                -- state.built = func.filter(state.built, function(e) return not func.contains(param, e) end)
             elseif (name == "new") then
                 -- local e = game.interface.getEntity(param.id)
                 -- game.interface.upgradeConstruction(
@@ -697,7 +696,6 @@ local script = {
                         print('LOLLO nearby constructions = ')
                         require('luadump')(true)(relevantNearbyEntities)
 
-                        -- LOLLO TODO this is dodgy: some items seem not to exist, the station is only one (even if the game has several) and it is very far away
                         -- state.items[#state.items + 1] = param.id
                         -- state.checkedItems[#state.checkedItems + 1] = param.id
                         -- if (param.isEntry) then state.entries[#state.entries + 1] = param.id
@@ -729,7 +727,8 @@ local script = {
                 
                 local stations = pipe.new
                     * state.checkedItems
-                    * pipe.filter(function(e) return func.contains(state.stations, e) and not func.contains(state.built, e) end)
+                    -- * pipe.filter(function(e) return func.contains(state.stations, e) and not func.contains(state.built, e) end)
+                    * pipe.filter(function(e) return func.contains(state.stations, e) end)
                     * pipe.map(game.interface.getEntity)
                     * pipe.filter(pipe.noop())
                 
@@ -751,13 +750,13 @@ local script = {
                 if not func.contains(state.built, param.id) then
                     state.items[#state.items + 1] = param.id
                     state.stations[#state.stations + 1] = param.id
-                    state.built[#state.built + 1] = param.id
+                    -- state.built[#state.built + 1] = param.id
                     state.builtLevelCount[param.id] = param.nbGroup
                 end
             elseif (name == "window.close") then
                 -- LOLLO TODO this is also funny
                 state.items = func.filter(state.items, function(i) return not func.contains(state.built, i) or func.contains(state.checkedItems, i) end)
-                state.built = func.filter(state.built, function(b) return func.contains(state.checkedItems, b) end)
+                -- state.built = func.filter(state.built, function(b) return func.contains(state.checkedItems, b) end)
             end
         end
     end,
