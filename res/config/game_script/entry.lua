@@ -428,7 +428,7 @@ local buildUnderpass = function(incomingEntries)
     local latestEntry = {}
     local olderEntries = {}
     for i, ent in ipairs(incomingEntries) do
-        if ent.params.modules[1].params == nil then
+        if latestEntry.params == nil and ent.params.modules[1].params == nil then
             latestEntry = ent
         else
             olderEntries[#olderEntries + 1] = ent
@@ -463,7 +463,7 @@ local buildUnderpass = function(incomingEntries)
                 metadata = {entry = true},
                 name = 'street/underpass_entry.module',
                 params = pureWoutModulesAndSeed(ent.params),
-                transf = iRot * rot * coor.trans((vec - vecRef) .. iRot) * modu.transf, -- * coor.trans(deltaPosVec) ,
+                transf = iRot * rot * coor.trans((vec - vecRef) .. iRot) * (modu.transf or iRot), -- * coor.trans(deltaPosVec) ,
                 variant = 0
             }
         end
