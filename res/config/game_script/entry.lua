@@ -25,7 +25,7 @@ local function myErrorHandler(err)
 end
 
 local function myErrorHandlerShort(err)
-    print('entry.lua ERROR: ', err)
+    print('entry.lua ERROR making the connection popup')
 end
 
 local cov = function(m)
@@ -66,7 +66,7 @@ local addEntry = function(id)
     if (state.linkEntries) then
         local entity = game.interface.getEntity(id)
         if (entity) then
-            pcall(function()
+            xpcall(function()
                 local isEntry = entity.fileName == "street/underpass_entry.con"
                 local isStation = entity.fileName == "station/rail/mus.con"
                 local isBuilt = isStation and entity.params and entity.params.isFinalized == 1
