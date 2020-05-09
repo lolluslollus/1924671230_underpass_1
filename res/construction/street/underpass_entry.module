@@ -129,6 +129,7 @@ function data()
         },
         
         updateFn = function(result, transform, tag, slotId, addModelFn, params)
+            print('LOLLO underpass_entry.module upgradeFn starting') 
             local params = result.entryModules[slotId].params and result.entryModules[slotId].params or params
             local _ = func.forEach(getModels(params, result, slotId), function(m) addModelFn(m.id, m.transf) end)
             local dz = 0
