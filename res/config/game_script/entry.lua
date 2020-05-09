@@ -1,6 +1,7 @@
 local pipe = require "entry/pipe"
 local func = require "entry/func"
 local coor = require "entry/coor"
+local arrayUtils = require('/entry/lolloArrayUtils')
 
 local state = {
     warningShaderMod = false,
@@ -20,6 +21,10 @@ local state = {
 }
 
 local function myErrorHandler(err)
+    print('entry.lua ERROR: ', err)
+end
+
+local function myErrorHandlerShort(err)
     print('entry.lua ERROR: ', err)
 end
 
@@ -61,7 +66,7 @@ local addEntry = function(id)
     if (state.linkEntries) then
         local entity = game.interface.getEntity(id)
         if (entity) then
-            xpcall(function()
+            pcall(function()
                 local isEntry = entity.fileName == "street/underpass_entry.con"
                 local isStation = entity.fileName == "station/rail/mus.con"
                 local isBuilt = isStation and entity.params and entity.params.isFinalized == 1
@@ -122,7 +127,7 @@ local addEntry = function(id)
                     state.addedItems[#state.addedItems + 1] = id
                 end
             end,
-            myErrorHandler
+            myErrorHandlerShort
         )
         end
     end
@@ -326,10 +331,6 @@ local buildStation = function(entries, stations, built)
         end
         state.builtLevelCount[newId] = #groups
         state.items = func.filter(state.items, function(e) return not func.contains(state.checkedItems, e) end)
-        print('LOLLO state.items = ')
-        require('luadump')(true)(state.items)
-        print('LOLLO state.checkedItems = ')
-        require('luadump')(true)(state.checkedItems)
         state.checkedItems = {}
         state.stations = func.filter(state.stations, function(e) return func.contains(state.items, e) end)
         state.entries = func.filter(state.entries, function(e) return func.contains(state.items, e) end)
@@ -397,11 +398,17 @@ local script = {
             else
                 -- LOLLO TODO not all things can be connected with all other things.
                 -- LOLLO TODO this is dodgy: it does not account for the sequence.
-                print('LOLLO state.addedItems = ')
-                require('luadump')(true)(state.addedItems)
-                print('LOLLO state.items = ')
-                require('luadump')(true)(state.items)
+                -- print('LOLLO state.addedItems = ')
+                -- require('luadump')(true)(state.addedItems)
+                -- print('LOLLO state.items = ')
+                -- require('luadump')(true)(state.items)
                 if (#state.addedItems < #state.items) then -- LOLLO
+                    -- print('LOLLO state.items = ')
+                    -- require('luadump')(true)(state.items)
+                    -- print('LOLLO state.addedItems = ')
+                    -- require('luadump')(true)(state.addedItems)
+                    -- print('LOLLO state.checkedItems = ')
+                    -- require('luadump')(true)(state.checkedItems)
                 -- if (#state.addedItems <= #state.items) then
                     for i = #state.addedItems + 1, #state.items do
                         addEntry(state.items[i])
@@ -420,7 +427,7 @@ local script = {
     end,
     handleEvent = function(src, id, name, param)
         if (id == "__underpassEvent__") then
-            print('LOLLO event name = ', name)
+            print('-------- LOLLO event name = ', name)
             -- LOLLO TODO renew names in state. Cannot be done from game.interface, the game won't allow it
             -- print('LOLLO state = ')
             -- require('luadump')(true)(state)
@@ -475,10 +482,62 @@ local script = {
                 --     e.fileName,
                 --     func.with(pure(e.params), {modules = e.modules, isNotPreview = true})
                 -- )
-                state.items[#state.items + 1] = param.id
-                state.checkedItems[#state.checkedItems + 1] = param.id
-                if (param.isEntry) then state.entries[#state.entries + 1] = param.id
-                elseif (param.isStation) then state.stations[#state.stations + 1] = param.id end
+
+                if param and param.id then
+                    local newEntity = game.interface.getEntity(param.id)
+                    if newEntity ~= nil and newEntity.position then
+                        print('LOLLO newEntity = ')
+                        require('luadump')(true)(newEntity)
+                        local nearbyEntities = game.interface.getEntities(
+                            {pos = newEntity.position, radius = 250},
+                            {type = 'CONSTRUCTION', includeData = true}
+                        )
+                        print('LOLLO game.interface.getEntities = ')
+                        require('luadump')(true)(game.interface.getEntities)
+                        local relevantNearbyEntities = {}
+
+                        -- LOLLO added this
+                        state.items = {}
+                        state.entries = {}
+                        state.checkedItems = {}
+                        state.stations = {}
+
+                        for ii, vv in pairs(nearbyEntities) do
+                            -- print('LOLLO ii = ', ii)
+                            -- print('LOLLO vv = ', vv)
+                            -- require('luadump')(true)(vv)
+                            if vv.fileName == 'street/underpass_entry.con' then
+                                -- arrayUtils.addUnique(state.entries, vv.id or ii) -- LOLLO added this
+                                -- arrayUtils.addUnique(state.checkedItems, vv.id or ii) -- LOLLO added this
+                                -- arrayUtils.addUnique(state.items, vv.id or ii) -- LOLLO added this
+                                state.entries[#state.entries + 1] = vv.id or ii -- LOLLO added this
+                                state.checkedItems[#state.checkedItems + 1] = vv.id or ii -- LOLLO added this
+                                state.items[#state.items + 1] = vv.id or ii -- LOLLO added this
+                                relevantNearbyEntities[#relevantNearbyEntities + 1] = {[ii] = vv}
+                            elseif vv.fileName == 'street/underpass_entry.con' or vv.fileName == 'station/rail/mus.con' then
+                                -- arrayUtils.addUnique(state.stations, vv.id or ii) -- LOLLO added this
+                                -- arrayUtils.addUnique(state.checkedItems, vv.id or ii) -- LOLLO added this
+                                -- arrayUtils.addUnique(state.items, vv.id or ii) -- LOLLO added this
+                                state.stations[#state.stations + 1] = vv.id or ii -- LOLLO added this
+                                state.checkedItems[#state.checkedItems + 1] = vv.id or ii -- LOLLO added this
+                                state.items[#state.items + 1] = vv.id or ii -- LOLLO added this
+                                relevantNearbyEntities[#relevantNearbyEntities + 1] = {[ii] = vv}
+                            end
+                        end
+
+                        print('LOLLO nearby constructions = ')
+                        require('luadump')(true)(relevantNearbyEntities)
+
+                        -- LOLLO TODO this is dodgy: some items seem not to exist, the station is only one (even if the game has several) and it is very far away
+                        -- state.items[#state.items + 1] = param.id
+                        -- state.checkedItems[#state.checkedItems + 1] = param.id
+                        -- if (param.isEntry) then state.entries[#state.entries + 1] = param.id
+                        -- elseif (param.isStation) then state.stations[#state.stations + 1] = param.id end
+
+                        print('LOLLO state = ')
+                        require('luadump')(true)(state)
+                    end
+                end
             elseif (name == "uncheck") then
                 state.checkedItems = func.filter(state.checkedItems, function(e) return e ~= param.id end)
             elseif (name == "check") then
@@ -486,6 +545,7 @@ local script = {
                     state.checkedItems[#state.checkedItems + 1] = param.id
                 end
             elseif (name == "construction") then
+                -- user clicked finalise button
                 local entries = pipe.new
                     * state.checkedItems
                     * pipe.filter(function(e) return func.contains(state.entries, e) end)
