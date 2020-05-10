@@ -1,4 +1,4 @@
-package.path = package.path .. ';res/scripts/?.lua'
+package.path = package.path .. ';res/scripts/?.lua;C:/Program Files (x86)/Steam/steamapps/common/Transport Fever 2/res/scripts/?.lua'
 
 -- actboy lua debugger
 -- actboy extension path
@@ -8,20 +8,60 @@ local pipe = require 'entry/pipe'
 local func = require 'entry/func'
 local coor = require 'entry/coor'
 local arrayUtils = require('/entry/lolloArrayUtils')
+local transfUtil = require('transf')
+local lolloTransfUtils = require('/entry/lolloTransfUtils')
+local vec2 = require('vec2')
+local vec3 = require('vec3')
+local vec4 = require('vec4')
+local matrixUtils = require('entry/matrix')
+local luadump = require('luadump')
+local _idTransf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
+local _pi = math.pi -- 3.1415926535 -- 3.141592653589793238462643383279502884197169399375105820974944592
 
 local cov = function(m)
-    return func.seqMap(
-        {0, 3},
-        function(r)
-            return func.seqMap(
-                {1, 4},
-                function(c)
-                    return m[r * 4 + c]
-                end
-            )
-        end
-    )
+    return func.seqMap({0, 3}, function(r)
+        return func.seqMap({1, 4}, function(c)
+            return m[r * 4 + c]
+        end)
+    end)
 end
+
+local transf22 = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 5, 5, 5, 1}
+local transf222 = transfUtil.mul(_idTransf, transf22)
+
+local transf1 = { 1, 0, 0, 0, -0, 1, 0, 0, 0, 0, 1, 0, -1717.6416015625, 706.005859375, 31.600006103516, 1 }
+local transf2 = { 1, 0, 0, 0, -0, 1, 0, 0, 0, 0, 1, 0, -1676.6469726563, 708.84033203125, 31.650009155273, 1 }
+
+
+local vec1 = {x = 1, y = 1, z = 1}
+local vec2 = {x = 10, y = 1, z = 1}
+local vec3 = {x = 1, y = 10, z = 1}
+local vec4 = {x = 1, y = 1, z = 10}
+local leadingTransf = { 7.5497901264043e-08, -1, 0, 0, 1, 7.5497901264043e-08, 0, 0, 0, 0, 1, 0, -1749.0004882813, 708.31372070313, 33.100082397461, 1 }
+local test = lolloTransfUtils.flipXYZ(leadingTransf)
+local leadingTransf = { 0.9238795042038, -0.38268345594406, 0, 0, 0.38268345594406, 0.9238795042038, 0, 0, 0, 0, 1, 0, 2914.9611816406, -335.0537109375, 4.640007019043, 1 }
+local test1 = lolloTransfUtils.flipXYZ(leadingTransf)
+local test2 = coor.inv(cov(leadingTransf))
+
+local test1 = lolloTransfUtils.getVecTransformed(vec1, leadingTransf)
+local test11 = lolloTransfUtils.getVecTransformed(vec1, lolloTransfUtils.flipXYZ(leadingTransf))
+local test2 = lolloTransfUtils.getVecTransformed(vec2, leadingTransf)
+local test21 = lolloTransfUtils.getVecTransformed(vec2, lolloTransfUtils.flipXYZ(leadingTransf))
+local test3 = lolloTransfUtils.getVecTransformed(vec3, leadingTransf)
+local test31 = lolloTransfUtils.getVecTransformed(vec3, lolloTransfUtils.flipXYZ(leadingTransf))
+local test4 = lolloTransfUtils.getVecTransformed(vec4, leadingTransf)
+local test41 = lolloTransfUtils.getVecTransformed(vec4, lolloTransfUtils.flipXYZ(leadingTransf))
+
+local test5 = lolloTransfUtils.mul(leadingTransf, lolloTransfUtils.flipXYZ(leadingTransf))
+local test5i = lolloTransfUtils.mul(lolloTransfUtils.flipXYZ(leadingTransf), leadingTransf)
+
+local invertedLeadingTransf = lolloTransfUtils.getInverseTransf(leadingTransf)
+local test6 = lolloTransfUtils.mul(leadingTransf, invertedLeadingTransf) -- both look good, this and the following
+local test6i = lolloTransfUtils.mul(invertedLeadingTransf, leadingTransf)
+local test7 = transfUtil.mul(leadingTransf, invertedLeadingTransf) -- both look good, this and the following
+local test7i = transfUtil.mul(invertedLeadingTransf, leadingTransf)
+local aaa = 123
+
 
 local pureWoutModulesAndSeed = function(pa)
     local params = {}

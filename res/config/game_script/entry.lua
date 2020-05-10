@@ -2,40 +2,15 @@ local pipe = require "entry/pipe"
 local func = require "entry/func"
 local coor = require "entry/coor"
 local arrayUtils = require('/entry/lolloArrayUtils')
+local transfUtil = require('transf')
+local lolloTransfUtils = require('/entry/lolloTransfUtils')
+local vec3 = require('vec3')
+local vec4 = require('vec4')
+local luadump = require('luadump')
+local _idTransf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 
-local _maxDistanceForConnectedItems = 250.0
+local _maxDistanceForConnectedItems = 160.0 -- 250.0
 
-local function getGlobalState()
-    return game._underpassGlobalState or {}
-end
-local function setGlobalState(newState)
-    game._underpassGlobalState = (newState or {})
-end
-
-local function setEntryInGlobalState(id, linkedItems)
-    _setObjectInGlobalState(id, linkedItems, 'entries')
-end
-local function setStationInGlobalState(id, linkedItems)
-    _setObjectInGlobalState(id, linkedItems, 'stations')
-end
-local function _setObjectInGlobalState(id, linkedItems, objectName)
-    if game._underpassGlobalState == nil then game._underpassGlobalState = {} end
-    if game._underpassGlobalState[objectName] == nil then game._underpassGlobalState[objectName] = {} end
-    if game._underpassGlobalState[objectName][id] == nil then game._underpassGlobalState[objectName][id] = {} end
-    game._underpassGlobalState[objectName][id] = linkedItems
-end
-
-local function getEntryFromGlobalState(id)
-    return _getObjectFromGlobalState(id, 'entries')
-end
-local function getStationFromGlobalState(id)
-    return _getObjectFromGlobalState(id, 'stations')
-end
-local function _getObjectFromGlobalState(id, objectName)
-    if game._underpassGlobalState == nil then game._underpassGlobalState = {} end
-    if game._underpassGlobalState[objectName] == nil then game._underpassGlobalState[objectName] = {} end
-    return game._underpassGlobalState[objectName][id] or {}
-end
 
 local state = {
     warningShaderMod = false,
@@ -450,10 +425,10 @@ local buildStation = function(newEntries, stations, built)
 end
 
 local buildUnderpass = function(incomingEntries)
-    print('LOLLO state before building underpass = ')
-    require('luadump')(true)(state)
-    print('LOLLO incomingEntries before building underpass = ')
-    require('luadump')(true)(incomingEntries)
+    -- print('LOLLO state before building underpass = ')
+    -- require('luadump')(true)(state)
+    -- print('LOLLO incomingEntries before building underpass = ')
+    -- require('luadump')(true)(incomingEntries)
 
     local leadingEntry = {}
     local otherEntries = {}
@@ -465,35 +440,65 @@ local buildUnderpass = function(incomingEntries)
         end
     end
 
-    local vecRef, rotRef, _ = coor.decomposite(leadingEntry.transf)
-    local iRot = coor.inv(cov(rotRef))
-    -- bulldoze the older entries, the new one will be the final construction
+    local leadingTransf = cloneWoutModulesAndSeed(leadingEntry.transf)
+    -- print('LOLLO leadingTransf = ')
+    -- luadump(true)(leadingTransf)
+    
+    -- bulldoze the older entries, the new one will be the final construction and the others will be its modules
     for i, ent in pairs(otherEntries) do
         game.interface.bulldoze(ent.id)
     end
 
-    local modules = {}
-
-    local vec, rot, _ = coor.decomposite(leadingEntry.transf)
-    modules[#modules + 1] = {
-        metadata = {entry = true},
-        name = "street/underpass_entry.module",
-        params = cloneWoutModulesAndSeed(leadingEntry.params),
-        transf = iRot * rot * coor.trans((vec - vecRef) .. iRot),
-        variant = 0,
+    local modules = {
+        {
+            metadata = {entry = true},
+            name = "street/underpass_entry.module",
+            params = cloneWoutModulesAndSeed(leadingEntry.params),
+            -- transf = invRotRef * rotE * coor.trans((traslE - traslRef) .. invRotRef),
+            transf = _idTransf, -- same as above
+            variant = 0,
+        }
     }
 
     for i, ent in ipairs(otherEntries) do
+        -- print('LOLLO ent.transf = ')
+        -- luadump(true)(ent.transf)
+        -- LOLLO NOTE not commutative
+        local newTransfE = lolloTransfUtils.mul(ent.transf, lolloTransfUtils.getInverseTransf(leadingTransf))
+        -- print('LOLLO newTransfE = ')
+        -- luadump(true)(newTransfE)
+
         for ii, modu in pairs(ent.params.modules) do
-            -- local deltaPosVec = {x =  - leadingEntry.position[1] + ent.position[1], y = - leadingEntry.position[2] + ent.position[2], z = - leadingEntry.position[3] + ent.position[3]}
-            local vec, rot, _ = coor.decomposite(ent.transf)
-            modules[#modules + 1] = {
-                metadata = {entry = true},
-                name = 'street/underpass_entry.module',
-                params = cloneWoutModulesAndSeed(ent.params),
-                transf = iRot * rot * coor.trans((vec - vecRef) .. iRot) * (modu.transf or iRot), -- * coor.trans(deltaPosVec) ,
-                variant = 0
-            }
+            if modu.transf == nil then
+                modules[#modules + 1] = {
+                    metadata = {entry = true},
+                    name = "street/underpass_entry.module",
+                    params = cloneWoutModulesAndSeed(ent.params),
+                    transf = cloneWoutModulesAndSeed(newTransfE),
+                    variant = 0,
+                }
+            else
+                -- LOLLO NOTE not commutative
+                -- local newTransfM = lolloTransfUtils.mul(newTransfE, modu.transf) -- no!
+                -- print('LOLLO newTransfM = ')
+                -- luadump(true)(newTransfM)
+                -- local newTransfM = transfUtil.mul(newTransfE, modu.transf) -- yes!
+                -- print('LOLLO newTransfM = ')
+                -- luadump(true)(newTransfM)
+                local newTransfM = lolloTransfUtils.mul(modu.transf, newTransfE) -- yes!
+                -- print('LOLLO newTransfM = ')
+                -- luadump(true)(newTransfM)
+                -- local newTransfM = transfUtil.mul(modu.transf, newTransfE) -- no!
+                -- print('LOLLO newTransfM = ')
+                -- luadump(true)(newTransfM)
+                modules[#modules + 1] = {
+                    metadata = {entry = true},
+                    name = 'street/underpass_entry.module',
+                    params = cloneWoutModulesAndSeed(ent.params),
+                    transf = cloneWoutModulesAndSeed(newTransfM),
+                    variant = 0
+                }
+            end
         end
     end
 
@@ -502,12 +507,12 @@ local buildUnderpass = function(incomingEntries)
     --     {
     --         modules = func.map(incomingEntries,
     --             function(entry)
-    --                 local vec, rot, _ = coor.decomposite(entry.transf)
+    --                 local traslE, rotE, _ = coor.decomposite(entry.transf)
     --                 return {
     --                     metadata = {entry = true},
     --                     name = "street/underpass_entry.module",
     --                     variant = 0,
-    --                     transf = iRot * rot * coor.trans((vec - vecRef) .. iRot),
+    --                     transf = invRotRef * rotE * coor.trans((traslE - traslRef) .. invRotRef),
     --                     params = cloneWoutModulesAndSeed(entry.params)
     --                 }
     --             end)
@@ -661,15 +666,14 @@ local script = {
                         )
                         local relevantNearbyEntities = {}
 
-                        -- LOLLO added this
-                        print('LOLLO state before new = ')
-                        require('luadump')(true)(state)
+                        -- print('LOLLO state before new = ')
+                        -- require('luadump')(true)(state)
                         state.items = {}
                         state.entries = {} --newEntity.fileName == 'street/underpass_entry.con' and {newEntity.id} or {} -- useless, lua will sort the table
                         state.checkedItems = {}
                         state.stations = {} --newEntity.fileName == 'station/rail/mus.con' and {newEntity.id} or {}
-                        print('LOLLO state st the beginning of new = ')
-                        require('luadump')(true)(state)
+                        -- print('LOLLO state at the beginning of new = ')
+                        -- require('luadump')(true)(state)
                         for ii, vv in pairs(nearbyEntities) do
                             -- print('LOLLO ii = ', ii)
                             -- print('LOLLO vv = ', vv)
@@ -693,16 +697,16 @@ local script = {
                             end
                         end
 
-                        print('LOLLO nearby constructions = ')
-                        require('luadump')(true)(relevantNearbyEntities)
+                        -- print('LOLLO nearby constructions = ')
+                        -- require('luadump')(true)(relevantNearbyEntities)
 
                         -- state.items[#state.items + 1] = param.id
                         -- state.checkedItems[#state.checkedItems + 1] = param.id
                         -- if (param.isEntry) then state.entries[#state.entries + 1] = param.id
                         -- elseif (param.isStation) then state.stations[#state.stations + 1] = param.id end
 
-                        print('LOLLO state = ')
-                        require('luadump')(true)(state)
+                        -- print('LOLLO state at the end of new = ')
+                        -- require('luadump')(true)(state)
                     end
                 end
             elseif (name == "uncheck") then
