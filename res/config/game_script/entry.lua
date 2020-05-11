@@ -440,7 +440,7 @@ local buildStation = function(newEntries, stations) -- , built)
         while stationsProps[1].modules[90000 + i] ~= nil do
             print('LOLLO old module index = ', 90000 + i)
             modules[90000 + i] = stationsProps[1].modules[90000 + i]
-            modules[90000 + i].params.isFinalized = 1
+            -- modules[90000 + i].params.isFinalized = 1
             i = i + 1
         end
     
@@ -451,7 +451,7 @@ local buildStation = function(newEntries, stations) -- , built)
             -- modu.transf = iRot * rot * coor.trans((vec - vecRef) .. iRot)
             print('LOLLO new module index = ', 90000 + iii + newEntryFirstModuleId)
             modules[90000 + iii + newEntryFirstModuleId] = cloneWoutModulesAndSeed(modu)
-            modules[90000 + iii + newEntryFirstModuleId].params.isFinalized = 1
+            -- modules[90000 + iii + newEntryFirstModuleId].params.isFinalized = 1
         end    
     else
         print('LOLLO WARNING: type(stationsProps) =', type(stationsProps), '#stationsProps == ', #stationsProps)
@@ -461,7 +461,7 @@ local buildStation = function(newEntries, stations) -- , built)
             -- modu.transf = iRot * rot * coor.trans((vec - vecRef) .. iRot)
             print('LOLLO warning module index = ', 90000 + iii)
             modules[90000 + iii] = cloneWoutModulesAndSeed(modu)
-            modules[90000 + iii].params.isFinalized = 1
+            -- modules[90000 + iii].params.isFinalized = 1
         end    
     end
 
