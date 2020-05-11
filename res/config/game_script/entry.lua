@@ -24,7 +24,7 @@ local state = {
     entries = {},
     
     linkEntries = false,
-    built = {},
+    -- built = {},
     builtLevelCount = {},
 
     pos = false
@@ -188,19 +188,30 @@ local checkFn = function()
     if (state.linkEntries) then
         local stations = func.filter(state.checkedItems, function(e) return func.contains(state.stations, e) end)
         local entries = func.filter(state.checkedItems, function(e) return func.contains(state.entries, e) end)
-        local built = func.filter(state.checkedItems, function(e) return func.contains(state.built, e) end)
+        -- local built = func.filter(state.checkedItems, function(e) return func.contains(state.built, e) end)
         
         if (#stations > 0) then
-            if (#stations - #built + func.fold(built, 0, function(t, b) return (state.builtLevelCount[b] or 99) + t end) > 8) then
+            -- if (#stations - #built + func.fold(built, 0, function(t, b) return (state.builtLevelCount[b] or 99) + t end) > 8) then
+            --     game.gui.setEnabled(state.linkEntries.button.id, false)
+            --     state.linkEntries.desc:setText(_("STATION_MAX_LIMIT"), 200)
+            -- elseif (#entries > 0 or (#built > 0 and #stations > 1)) then
+            --     game.gui.setEnabled(state.linkEntries.button.id, true)
+            --     state.linkEntries.desc:setText(_("STATION_CAN_FINALIZE"), 200)
+            -- else
+            --     game.gui.setEnabled(state.linkEntries.button.id, false)
+            --     state.linkEntries.desc:setText(_("STATION_NEED_ENTRY"), 200)
+            -- end
+            if (#stations + func.fold({}, 0, function(t, b) return (state.builtLevelCount[b] or 99) + t end) > 8) then
                 game.gui.setEnabled(state.linkEntries.button.id, false)
                 state.linkEntries.desc:setText(_("STATION_MAX_LIMIT"), 200)
-            elseif (#entries > 0 or (#built > 0 and #stations > 1)) then
+            elseif #entries > 0 then
                 game.gui.setEnabled(state.linkEntries.button.id, true)
                 state.linkEntries.desc:setText(_("STATION_CAN_FINALIZE"), 200)
             else
                 game.gui.setEnabled(state.linkEntries.button.id, false)
                 state.linkEntries.desc:setText(_("STATION_NEED_ENTRY"), 200)
             end
+
             state.linkEntries.button.icon:setImage("ui/construction/station/rail/mus_op.tga")
             state.linkEntries:setTitle(_("STATION_CON"))
         elseif (#stations == 0) then
@@ -297,7 +308,7 @@ local function _getRetransfedEntryModules(entries, leadingTransf, additionalPara
     return modules
 end
 
-local buildStation = function(newEntries, stations, built)
+local buildStation = function(newEntries, stations) -- , built)
     print('LOLLO state before building station = ')
     require('luadump')(true)(state)
     print('LOLLO stations before building station = ')
@@ -305,9 +316,27 @@ local buildStation = function(newEntries, stations, built)
     print('LOLLO newEntries before building station = ')
     require('luadump')(true)(newEntries)
 
-    local ref = type(built) == 'table' and #built > 0 and built[1] or stations[1]
-    local leadingTransf = cloneWoutModulesAndSeed(ref.transf)
-    local vecRef, rotRef, _ = coor.decomposite(ref.transf)
+    -- local leadingStation = type(built) == 'table' and #built > 0 and built[1] or stations[1]
+    -- local leadingStation = stations[1]
+
+    local leadingStation = {}
+    local otherStations = {}
+    for _, sta in ipairs(stations) do
+        if leadingStation.params == nil and sta.params.isFinalized ~= 1 then
+            leadingStation = sta
+        end
+    end
+    if leadingStation.params == nil then leadingStation = stations[1] end
+    for _, sta in ipairs(stations) do
+        if sta.id ~= leadingStation.id then
+            otherStations[#otherStations + 1] = sta
+        end
+    end
+
+
+
+    local leadingTransf = cloneWoutModulesAndSeed(leadingStation.transf)
+    local vecRef, rotRef, _ = coor.decomposite(leadingStation.transf)
     local iRot = coor.inv(cov(rotRef))
     
     -- if (built and #built > 0) then
@@ -419,28 +448,30 @@ local buildStation = function(newEntries, stations, built)
     print('LOLLO modules second = ')
     require('luadump')(true)(modules)
 
-    -- bulldoze entries, which have been turned into station modules. Also bulldoze some other stuff that I don't understand.
-    if (built and #built > 1) then local _ = built * pipe.range(2, #built) * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze) end
-    local _ = stations * (built and pipe.noop() or pipe.range(2, #stations)) * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
+    -- bulldoze entries, which have been turned into station modules.
+    -- if (built and #built > 1) then local _ = built * pipe.range(2, #built) * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze) end
+    -- local _ = stations * (built and pipe.noop() or pipe.range(2, #stations)) * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
+    -- bulldoze other stations, which have been integrated into the leading one
+    local _ = stations * (pipe.range(2, #stations)) * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
     local _ = newEntries * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
     
     local newId = game.interface.upgradeConstruction(
-        ref.id,
+        leadingStation.id,
         "station/rail/mus.con",
         -- LOLLO this is like ellipsis in JS, it works fine
         func.with(
-            cloneWoutModulesAndSeed(ref.params),
+            cloneWoutModulesAndSeed(leadingStation.params),
             {
                 modules = cloneWoutModulesAndSeed(modules),
                 isFinalized = 1
             })
     )
     if newId then
-        if (built and #built > 1) then
-            for _, b in ipairs(built) do
-                state.builtLevelCount[b.id] = nil
-            end
-        end
+        -- if (built and #built > 1) then
+        --     for _, b in ipairs(built) do
+        --         state.builtLevelCount[b.id] = nil
+        --     end
+        -- end
         state.builtLevelCount[newId] = #groups
         state.items = func.filter(state.items, function(e) return not func.contains(state.checkedItems, e) end)
         state.checkedItems = {}
@@ -557,7 +588,7 @@ local script = {
         if not state.checkedItems then state.checkedItems = {} end
         if not state.stations then state.stations = {} end
         if not state.entries then state.entries = {} end
-        if not state.built then state.built = {} end
+        -- if not state.built then state.built = {} end
         if not state.builtLevelCount then state.builtLevelCount = {} end
 
         return state
@@ -569,30 +600,17 @@ local script = {
             state.stations = data.stations or {}
             state.entries = data.entries or {}
             state.builtLevelCount = data.builtLevelCount or {}
-            state.built = data.built or {}
+            -- state.built = data.built or {}
         end
     end,
     guiUpdate = function()
-        -- print('LOLLO guiUpdate') -- this happens many times per second
-        -- require('debugger')()
+        -- this happens many times per second
         if state.linkEntries then
             if (#state.items < 1) then
                 closeWindow()
                 state.addedItems = {}
             else
-                -- LOLLO TODO this is dodgy: it does not account for the sequence.
-                -- print('LOLLO state.addedItems = ')
-                -- require('luadump')(true)(state.addedItems)
-                -- print('LOLLO state.items = ')
-                -- require('luadump')(true)(state.items)
-                -- require('debugger')()
                 if (#state.addedItems < #state.items) then -- LOLLO
-                    -- print('LOLLO state.items = ')
-                    -- require('luadump')(true)(state.items)
-                    -- print('LOLLO state.addedItems = ')
-                    -- require('luadump')(true)(state.addedItems)
-                    -- print('LOLLO state.checkedItems = ')
-                    -- require('luadump')(true)(state.checkedItems)
                 -- if (#state.addedItems <= #state.items) then
                     for i = #state.addedItems + 1, #state.items do
                         print('LOLLO about to add entry = ', tostring(state.items[i]))
@@ -604,7 +622,8 @@ local script = {
                 end
                 checkFn()
             end
-        elseif (state.showWindow and #state.items - #state.built > 0) then
+        -- elseif (state.showWindow and #state.items - #state.built > 0) then
+        elseif (state.showWindow and #state.items > 0) then
             showWindow()
             checkFn()
             state.showWindow = false
@@ -677,7 +696,6 @@ local script = {
                             {pos = newEntity.position, radius = _maxDistanceForConnectedItems},
                             {type = 'CONSTRUCTION', includeData = true}
                         )
-                        local relevantNearbyEntities = {}
 
                         -- print('LOLLO state before new = ')
                         -- require('luadump')(true)(state)
@@ -698,7 +716,6 @@ local script = {
                                 state.entries[#state.entries + 1] = vv.id -- LOLLO added this
                                 state.checkedItems[#state.checkedItems + 1] = vv.id -- LOLLO added this
                                 state.items[#state.items + 1] = vv.id -- LOLLO added this
-                                relevantNearbyEntities[#relevantNearbyEntities + 1] = {[ii] = vv}
                             elseif vv.fileName == 'station/rail/mus.con' then
                                 -- arrayUtils.addUnique(state.stations, vv.id or ii) -- LOLLO added this
                                 -- arrayUtils.addUnique(state.checkedItems, vv.id or ii) -- LOLLO added this
@@ -706,12 +723,8 @@ local script = {
                                 state.stations[#state.stations + 1] = vv.id -- LOLLO added this
                                 state.checkedItems[#state.checkedItems + 1] = vv.id -- LOLLO added this
                                 state.items[#state.items + 1] = vv.id -- LOLLO added this
-                                relevantNearbyEntities[#relevantNearbyEntities + 1] = {[ii] = vv}
                             end
                         end
-
-                        -- print('LOLLO nearby constructions = ')
-                        -- require('luadump')(true)(relevantNearbyEntities)
 
                         -- state.items[#state.items + 1] = param.id
                         -- state.checkedItems[#state.checkedItems + 1] = param.id
@@ -736,11 +749,11 @@ local script = {
                     * pipe.map(game.interface.getEntity)
                     * pipe.filter(pipe.noop())
                 
-                local built = pipe.new
-                    * state.checkedItems
-                    * pipe.filter(function(e) return func.contains(state.built, e) end)
-                    * pipe.map(game.interface.getEntity)
-                    * pipe.filter(pipe.noop())
+                -- local built = pipe.new
+                --     * state.checkedItems
+                --     * pipe.filter(function(e) return func.contains(state.built, e) end)
+                --     * pipe.map(game.interface.getEntity)
+                --     * pipe.filter(pipe.noop())
                 
                 local stations = pipe.new
                     * state.checkedItems
@@ -764,16 +777,18 @@ local script = {
                     buildStation(entries, stations)
                 end
             elseif (name == "select") then
-                if not func.contains(state.built, param.id) then
+                -- if not func.contains(state.built, param.id) then
                     state.items[#state.items + 1] = param.id
                     state.stations[#state.stations + 1] = param.id
                     -- state.built[#state.built + 1] = param.id
                     state.builtLevelCount[param.id] = param.nbGroup
-                end
+                -- end
             elseif (name == "window.close") then
                 -- LOLLO TODO this is also funny
-                state.items = func.filter(state.items, function(i) return not func.contains(state.built, i) or func.contains(state.checkedItems, i) end)
+                -- state.items = func.filter(state.items, function(i) return not func.contains(state.built, i) or func.contains(state.checkedItems, i) end)
                 -- state.built = func.filter(state.built, function(b) return func.contains(state.checkedItems, b) end)
+                print('LOLLO state.items after window.close = ')
+                luadump(true)(state.items)
             end
         end
     end,
