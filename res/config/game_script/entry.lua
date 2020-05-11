@@ -432,7 +432,7 @@ local buildUnderpass = function(incomingEntries)
 
     local leadingEntry = {}
     local otherEntries = {}
-    for i, ent in ipairs(incomingEntries) do
+    for _, ent in ipairs(incomingEntries) do
         if leadingEntry.params == nil and ent.params.modules[1].params == nil then
             leadingEntry = ent
         else
@@ -440,12 +440,11 @@ local buildUnderpass = function(incomingEntries)
         end
     end
 
+    local newParams = cloneWoutModulesAndSeed(leadingEntry.params)
     local leadingTransf = cloneWoutModulesAndSeed(leadingEntry.transf)
-    -- print('LOLLO leadingTransf = ')
-    -- luadump(true)(leadingTransf)
-    
+
     -- bulldoze the older entries, the new one will be the final construction and the others will be its modules
-    for i, ent in pairs(otherEntries) do
+    for _, ent in pairs(otherEntries) do
         game.interface.bulldoze(ent.id)
     end
 
@@ -461,12 +460,8 @@ local buildUnderpass = function(incomingEntries)
     }
 
     for i, ent in ipairs(otherEntries) do
-        -- print('LOLLO ent.transf = ')
-        -- luadump(true)(ent.transf)
         -- LOLLO NOTE not commutative
         local newTransfE = lolloTransfUtils.mul(ent.transf, lolloTransfUtils.getInverseTransf(leadingTransf))
-        -- print('LOLLO newTransfE = ')
-        -- luadump(true)(newTransfE)
 
         for ii, modu in pairs(ent.params.modules) do
             if modu.transf == nil then
@@ -480,17 +475,9 @@ local buildUnderpass = function(incomingEntries)
             else
                 -- LOLLO NOTE not commutative
                 -- local newTransfM = lolloTransfUtils.mul(newTransfE, modu.transf) -- no!
-                -- print('LOLLO newTransfM = ')
-                -- luadump(true)(newTransfM)
                 -- local newTransfM = transfUtil.mul(newTransfE, modu.transf) -- yes!
-                -- print('LOLLO newTransfM = ')
-                -- luadump(true)(newTransfM)
                 local newTransfM = lolloTransfUtils.mul(modu.transf, newTransfE) -- yes!
-                -- print('LOLLO newTransfM = ')
-                -- luadump(true)(newTransfM)
                 -- local newTransfM = transfUtil.mul(modu.transf, newTransfE) -- no!
-                -- print('LOLLO newTransfM = ')
-                -- luadump(true)(newTransfM)
                 modules[#modules + 1] = {
                     metadata = {entry = true},
                     name = 'street/underpass_entry.module',
@@ -517,11 +504,8 @@ local buildUnderpass = function(incomingEntries)
     --                 }
     --             end)
     --     })
-    local newParams = cloneWoutModulesAndSeed(leadingEntry.params)
+
     newParams.modules = modules
-       
-    print('LOLLO entry newParams = ')
-    require('luadump')(true)(newParams)
 
     local newId = game.interface.upgradeConstruction(
         leadingEntry.id,
@@ -532,8 +516,6 @@ local buildUnderpass = function(incomingEntries)
         state.items = func.filter(state.items, function(e) return not func.contains(state.checkedItems, e) end)
         state.entries = func.filter(state.entries, function(e) return func.contains(state.items, e) end)
         state.checkedItems = {}
-        print('LOLLO state after building underpass = ')
-        require('luadump')(true)(state)
     end
 end
 
