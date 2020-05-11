@@ -6,6 +6,7 @@ local transfUtil = require('transf')
 local lolloTransfUtils = require('/entry/lolloTransfUtils')
 local vec3 = require('vec3')
 local vec4 = require('vec4')
+local debugger = require('debugger')
 local luadump = require('luadump')
 local _idTransf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 
@@ -255,6 +256,47 @@ local shaderWarning = function()
     end
 end
 
+local function _getRetransfedEntryModules(entries, leadingTransf, additionalParam)
+    local modules = {}
+
+    for i, ent in ipairs(entries) do
+        -- LOLLO NOTE not commutative
+        local newTransfE = lolloTransfUtils.mul(ent.transf, lolloTransfUtils.getInverseTransf(leadingTransf))
+
+        for ii, modu in pairs(ent.params.modules) do
+            if modu.transf == nil then
+                modules[#modules + 1] = {
+                    metadata = {entry = true},
+                    name = "street/underpass_entry.module",
+                    params = cloneWoutModulesAndSeed(ent.params),
+                    -- params = func.with(cloneWoutModulesAndSeed(ent.params), {isStation = true}),
+                    transf = cloneWoutModulesAndSeed(newTransfE),
+                    variant = 0,
+                }
+            else
+                -- LOLLO NOTE not commutative
+                -- local newTransfM = lolloTransfUtils.mul(newTransfE, modu.transf) -- no!
+                -- local newTransfM = transfUtil.mul(newTransfE, modu.transf) -- yes!
+                local newTransfM = lolloTransfUtils.mul(modu.transf, newTransfE) -- yes!
+                -- local newTransfM = transfUtil.mul(modu.transf, newTransfE) -- no!
+                modules[#modules + 1] = {
+                    metadata = {entry = true},
+                    name = 'street/underpass_entry.module',
+                    params = cloneWoutModulesAndSeed(ent.params),
+                    transf = cloneWoutModulesAndSeed(newTransfM),
+                    variant = 0
+                }
+            end
+
+            if type(additionalParam) == 'table' then
+                arrayUtils.concatValues(modules[#modules].params, additionalParam)
+            end
+        end
+    end
+
+    return modules
+end
+
 local buildStation = function(newEntries, stations, built)
     print('LOLLO state before building station = ')
     require('luadump')(true)(state)
@@ -262,9 +304,10 @@ local buildStation = function(newEntries, stations, built)
     require('luadump')(true)(stations)
     print('LOLLO newEntries before building station = ')
     require('luadump')(true)(newEntries)
+    debugger()
 
     local ref = type(built) == 'table' and #built > 0 and built[1] or stations[1]
-
+    local leadingTransf = cloneWoutModulesAndSeed(ref.transf)
     local vecRef, rotRef, _ = coor.decomposite(ref.transf)
     local iRot = coor.inv(cov(rotRef))
     
@@ -299,36 +342,24 @@ local buildStation = function(newEntries, stations, built)
     -- print('LOLLO groups = ')
     -- require('luadump')(true)(groups)
 
-    local newEntriesModules = {}
-    for _, ent in ipairs(newEntries) do
-        -- local ent = {
-        --     metadata = {entry = true},
-        --     name = "street/underpass_entry.module",
-        --     variant = 0,
-        --     transf = ent.transf,
-        --     params = func.with(cloneWoutModulesAndSeed(ent.params), {isStation = true})
-        -- }
-        local vec, rot, _ = coor.decomposite(ent.transf)
-        for _, modu in pairs(ent.params.modules) do
-            local transf = iRot * rot * coor.trans((vec - vecRef) .. iRot) * (modu.transf or iRot)
-            newEntriesModules[#newEntriesModules + 1] =
-                {
-                    metadata = {entry = true},
-                    name = "street/underpass_entry.module",
-                    params = func.with(cloneWoutModulesAndSeed(ent.params), {isStation = true}),
-                    transf = transf,
-                    variant = 0,
-                }
-        end
-    end
+    local newEntriesModules = _getRetransfedEntryModules(newEntries, leadingTransf, {isStation = true})
+--[[     for _, ent in ipairs(newEntries) do
+        local ent = {
+            metadata = {entry = true},
+            name = "street/underpass_entry.module",
+            variant = 0,
+            transf = ent.transf,
+            params = func.with(cloneWoutModulesAndSeed(ent.params), {isStation = true})
+        }
+    end ]]
 
     -- print('LOLLO newEntriesModules before building station = ')
-    -- require('luadump')(true)(newEntriesModules)
+    -- luadump(true)(newEntriesModules)
 
     -- LOLLO TODO make two stations nearby. Make one underpass and connect it to both. One of the stations disappears.
     -- LOLLO TODO add a platform: the connections will disappear
     local modules = {}
-    -- put all the modules of all stations into one, except the non-finalised entries, which are not in the groups
+    -- put all the modules of all stations into one, except the new entries, which are not in the groups coz they are new
     for i, gro in ipairs(groups) do
         local vec, rot, _ = coor.decomposite(gro.transf)
         local transf = iRot * rot * coor.trans((vec - vecRef) .. iRot)
@@ -448,7 +479,7 @@ local buildUnderpass = function(incomingEntries)
         game.interface.bulldoze(ent.id)
     end
 
-    local modules = {
+    newParams.modules = {
         {
             metadata = {entry = true},
             name = "street/underpass_entry.module",
@@ -459,7 +490,11 @@ local buildUnderpass = function(incomingEntries)
         }
     }
 
-    for i, ent in ipairs(otherEntries) do
+    arrayUtils.concatValues(
+        newParams.modules,
+        _getRetransfedEntryModules(otherEntries, leadingTransf)
+    )
+--[[     for i, ent in ipairs(otherEntries) do
         -- LOLLO NOTE not commutative
         local newTransfE = lolloTransfUtils.mul(ent.transf, lolloTransfUtils.getInverseTransf(leadingTransf))
 
@@ -487,7 +522,7 @@ local buildUnderpass = function(incomingEntries)
                 }
             end
         end
-    end
+    end ]]
 
     -- local newParams = func.with(
     --     cloneWoutModulesAndSeed(leadingEntry.params),
@@ -504,8 +539,6 @@ local buildUnderpass = function(incomingEntries)
     --                 }
     --             end)
     --     })
-
-    newParams.modules = modules
 
     local newId = game.interface.upgradeConstruction(
         leadingEntry.id,
