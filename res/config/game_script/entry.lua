@@ -289,7 +289,7 @@ local function _getRetransfedEntryModules(entries, leadingTransf, additionalPara
             end
 
             if type(additionalParam) == 'table' then
-                arrayUtils.concatValues(modules[#modules].params, additionalParam)
+                arrayUtils.concatKeysValues(modules[#modules].params, additionalParam)
             end
         end
     end
@@ -304,7 +304,6 @@ local buildStation = function(newEntries, stations, built)
     require('luadump')(true)(stations)
     print('LOLLO newEntries before building station = ')
     require('luadump')(true)(newEntries)
-    debugger()
 
     local ref = type(built) == 'table' and #built > 0 and built[1] or stations[1]
     local leadingTransf = cloneWoutModulesAndSeed(ref.transf)
@@ -341,7 +340,6 @@ local buildStation = function(newEntries, stations, built)
 
     -- print('LOLLO groups = ')
     -- require('luadump')(true)(groups)
-
     local newEntriesModules = _getRetransfedEntryModules(newEntries, leadingTransf, {isStation = true})
 --[[     for _, ent in ipairs(newEntries) do
         local ent = {
@@ -353,8 +351,8 @@ local buildStation = function(newEntries, stations, built)
         }
     end ]]
 
-    -- print('LOLLO newEntriesModules before building station = ')
-    -- luadump(true)(newEntriesModules)
+    print('LOLLO newEntriesModules before building station = ')
+    luadump(true)(newEntriesModules)
 
     -- LOLLO TODO make two stations nearby. Make one underpass and connect it to both. One of the stations disappears.
     -- LOLLO TODO add a platform: the connections will disappear
