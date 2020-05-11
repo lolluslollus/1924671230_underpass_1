@@ -7,7 +7,8 @@ local lolloTransfUtils = require('/entry/lolloTransfUtils')
 local vec3 = require('vec3')
 local vec4 = require('vec4')
 local debugger = require('debugger')
-local luadump = require('luadump')
+local luadump = require('entry/luadump')
+local inspect = require('inspect')
 local _idTransf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 
 local _maxDistanceForConnectedItems = 160.0 -- 250.0
@@ -82,7 +83,7 @@ local addEntry = function(id)
                 local isBuilt = isStation and entity.params and entity.params.isFinalized == 1
                 if (isEntry or isStation) then
                 -- print('LOLLO game.interface = ')
-                -- require('luadump')(true)(game.interface)
+                -- require('entry/luadump')(true)(game.interface)
                 -- findPath = (),
                 -- get...()
                 -- sendScriptEvent = (),
@@ -93,7 +94,7 @@ local addEntry = function(id)
                     print('LOLLO id = ', id)
                     print('LOLLO layoutId = ', layoutId)
                     -- print('LOLLO entity = ')
-                    -- require('luadump')(true)(entity)
+                    -- require('entry/luadump')(true)(entity)
                     local hLayout = gui.boxLayout_create(layoutId .. "layout", "HORIZONTAL")
                     local label = gui.textView_create(layoutId .. "label", isEntry and tostring(id) or entity.name .. (isBuilt and _("BUILT") or ""), 300)
                     local icon = gui.imageView_create(layoutId .. "icon",
@@ -310,30 +311,37 @@ end
 
 local buildStation = function(newEntries, stations) -- , built)
     print('LOLLO state before building station = ')
-    require('luadump')(true)(state)
+    require('entry/luadump')(true)(state)
     print('LOLLO stations before building station = ')
-    require('luadump')(true)(stations)
+    require('entry/luadump')(true)(stations)
     print('LOLLO newEntries before building station = ')
-    require('luadump')(true)(newEntries)
+    require('entry/luadump')(true)(newEntries)
 
     -- local leadingStation = type(built) == 'table' and #built > 0 and built[1] or stations[1]
-    -- local leadingStation = stations[1]
 
+    -- local leadingStation = stations[1]
     local leadingStation = {}
     local otherStations = {}
+    -- first look for an unfinalised station
     for _, sta in ipairs(stations) do
         if leadingStation.params == nil and sta.params.isFinalized ~= 1 then
             leadingStation = sta
         end
     end
+    -- if not found, fall back on the first
     if leadingStation.params == nil then leadingStation = stations[1] end
+    -- really nothing found, leave
+    if leadingStation.params == nil then return end
+
     for _, sta in ipairs(stations) do
         if sta.id ~= leadingStation.id then
             otherStations[#otherStations + 1] = sta
         end
     end
-
-
+    print('LOLLO leading station = ')
+    require('entry/luadump')(true)(leadingStation)
+    print('LOLLO other stations = ')
+    require('entry/luadump')(true)(otherStations)
 
     local leadingTransf = cloneWoutModulesAndSeed(leadingStation.transf)
     local vecRef, rotRef, _ = coor.decomposite(leadingStation.transf)
@@ -343,7 +351,7 @@ local buildStation = function(newEntries, stations) -- , built)
     --     for _, b in ipairs(built) do
     --         local group = decomp(b.params)
     --         print('LOLLO group = ')
-    --         require('luadump')(true)(group)
+    --         require('entry/luadump')(true)(group)
     --         for gId, g in pairs(group) do
     --             if (gId == 9) then
     --                 for _, m in ipairs(g.modules) do
@@ -352,23 +360,24 @@ local buildStation = function(newEntries, stations) -- , built)
     --                 end
     --             else
     --                 g.transf = coor.I() * g.transf * b.transf
-    --                 table.insert(groups, g)
+    --                 table.insert(stationsProps, g)
     --             end
     --         end
     --     end
     -- end
 
-    local groups = {}
-    for _, e in ipairs(stations) do
-        table.insert(groups, {
-            modules = e.params.modules,
-            params = func.with(cloneWoutModulesAndSeed(e.params), {isFinalized = 1}),
-            transf = e.transf
+    local stationsProps = {}
+    for _, sta in ipairs(stations) do
+        table.insert(stationsProps, {
+            modules = sta.params.modules,
+            -- params = func.with(cloneWoutModulesAndSeed(sta.params), {isFinalized = 1}),
+            params = cloneWoutModulesAndSeed(sta.params),
+            transf = sta.transf
         })
     end
 
-    -- print('LOLLO groups = ')
-    -- require('luadump')(true)(groups)
+    -- print('LOLLO stationsProps = ')
+    -- require('entry/luadump')(true)(stationsProps)
     local newEntriesModules = _getRetransfedEntryModules(newEntries, leadingTransf, {isStation = true})
 --[[     for _, ent in ipairs(newEntries) do
         local ent = {
@@ -386,27 +395,38 @@ local buildStation = function(newEntries, stations) -- , built)
     -- LOLLO TODO make two stations nearby. Make one underpass and connect it to both. One of the stations disappears.
     -- LOLLO TODO add a platform: the connections will disappear
     local modules = {}
-    -- put all the modules of all stations into one, except the new entries, which are not in the groups coz they are new
-    for i, gro in ipairs(groups) do
-        local vec, rot, _ = coor.decomposite(gro.transf)
+    -- put all the modules of all stations into the leading one, except the new entries, which are not in the station props coz they are new
+    for i, staProps in ipairs(stationsProps) do
+        local vec, rot, _ = coor.decomposite(staProps.transf)
         local transf = iRot * rot * coor.trans((vec - vecRef) .. iRot)
-        for slotId, modu in pairs(gro.modules) do
+        print('LOLLO new transf = ')
+        luadump(true)(transf)
+        -- debugger()
+        local transf = lolloTransfUtils.mul(staProps.transf, lolloTransfUtils.getInverseTransf(leadingTransf))
+        print('LOLLO new transf = ')
+        luadump(true)(transf)
+        -- with the leading station, transf should always be _idTransf
+
+        for slotId, modu in pairs(staProps.modules) do
             -- if modu.params and modu.params.isFinalized == 1 then
-            if gro.params and gro.params.isFinalized == 1 then
-                -- modu.params = gro.params
-                -- modu.transf = transf
+            if staProps.params and staProps.params.isFinalized == 1 then
+                -- modu.params.isFinalized = 1
                 modules[slotId] = modu
             else
-                modu.params = gro.params
+                modu.params = cloneWoutModulesAndSeed(staProps.params)
+                -- modu.params.isFinalized = 1
                 modu.transf = transf
+                -- local newTransfM = lolloTransfUtils.mul(modu.transf, newTransfE) -- yes!
                 modules[slotId + i * 10000] = modu -- only change the index the first time
-                modules[slotId + i * 10000].params.isFinalized = 1 -- unnecessary but safer
             end
         end
+        staProps.params.isFinalized = 1
     end
     
+    debugger()
     print('LOLLO modules first = ')
-    require('luadump')(true)(modules)
+    luadump(true)(modules)
+    -- print(inspect(modules))
 
     -- LOLLO this replaces previous entries
     -- for i, e in ipairs(newEntriesModules) do
@@ -416,10 +436,10 @@ local buildStation = function(newEntries, stations) -- , built)
     -- end
     
     local i = 1
-    if type(groups) == 'table' and type(groups[1]) == 'table' then
-        while groups[1].modules[90000 + i] ~= nil do
+    if type(stationsProps) == 'table' and type(stationsProps[1]) == 'table' then
+        while stationsProps[1].modules[90000 + i] ~= nil do
             print('LOLLO old module index = ', 90000 + i)
-            modules[90000 + i] = groups[1].modules[90000 + i]
+            modules[90000 + i] = stationsProps[1].modules[90000 + i]
             modules[90000 + i].params.isFinalized = 1
             i = i + 1
         end
@@ -434,7 +454,7 @@ local buildStation = function(newEntries, stations) -- , built)
             modules[90000 + iii + newEntryFirstModuleId].params.isFinalized = 1
         end    
     else
-        print('LOLLO WARNING: type(groups) =', type(groups), '#groups == ', #groups)
+        print('LOLLO WARNING: type(stationsProps) =', type(stationsProps), '#stationsProps == ', #stationsProps)
         for iii = 1, #newEntriesModules do
             local modu = newEntriesModules[iii]
             -- local vec, rot, _ = coor.decomposite(modu.transf)
@@ -446,14 +466,20 @@ local buildStation = function(newEntries, stations) -- , built)
     end
 
     print('LOLLO modules second = ')
-    require('luadump')(true)(modules)
+    require('entry/luadump')(true)(modules)
 
     -- bulldoze entries, which have been turned into station modules.
     -- if (built and #built > 1) then local _ = built * pipe.range(2, #built) * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze) end
     -- local _ = stations * (built and pipe.noop() or pipe.range(2, #stations)) * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
     -- bulldoze other stations, which have been integrated into the leading one
-    local _ = stations * (pipe.range(2, #stations)) * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
-    local _ = newEntries * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
+    -- local _ = stations * (pipe.range(2, #stations)) * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
+    for _, sta in pairs(otherStations) do
+        game.interface.bulldoze(sta.id)
+    end
+    -- local _ = newEntries * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
+    for _, ent in pairs(newEntries) do
+        game.interface.bulldoze(ent.id)
+    end
     
     local newId = game.interface.upgradeConstruction(
         leadingStation.id,
@@ -472,7 +498,7 @@ local buildStation = function(newEntries, stations) -- , built)
         --         state.builtLevelCount[b.id] = nil
         --     end
         -- end
-        state.builtLevelCount[newId] = #groups
+        state.builtLevelCount[newId] = #stationsProps
         state.items = func.filter(state.items, function(e) return not func.contains(state.checkedItems, e) end)
         state.checkedItems = {}
         state.stations = func.filter(state.stations, function(e) return func.contains(state.items, e) end)
@@ -481,14 +507,14 @@ local buildStation = function(newEntries, stations) -- , built)
     end
 
     print('LOLLO state after building station = ')
-    require('luadump')(true)(state)
+    require('entry/luadump')(true)(state)
 end
 
 local buildUnderpass = function(incomingEntries)
     -- print('LOLLO state before building underpass = ')
-    -- require('luadump')(true)(state)
+    -- require('entry/luadump')(true)(state)
     -- print('LOLLO incomingEntries before building underpass = ')
-    -- require('luadump')(true)(incomingEntries)
+    -- require('entry/luadump')(true)(incomingEntries)
 
     local leadingEntry = {}
     local otherEntries = {}
@@ -610,11 +636,20 @@ local script = {
                 closeWindow()
                 state.addedItems = {}
             else
+                -- LOLLO TODO you check addedItems here, but addEntry adds entries. This is crap.
                 if (#state.addedItems < #state.items) then -- LOLLO
                 -- if (#state.addedItems <= #state.items) then
-                    for i = #state.addedItems + 1, #state.items do
-                        print('LOLLO about to add entry = ', tostring(state.items[i]))
-                        addEntry(state.items[i])
+                    print('LOLLO about to start adding entries to the popup')
+                    -- for i = #state.addedItems + 1, #state.items do
+                    --     print('LOLLO about to add entry = ', tostring(state.items[i]))
+                    --     addEntry(state.items[i])
+                    -- end
+                    -- debugger()
+                    for _, ite in pairs(state.items) do
+                        if not arrayUtils.arrayHasValue(state.addedItems, ite) then
+                            print('LOLLO about to add entry = ', tostring(ite))
+                            addEntry(ite)
+                        end
                     end
                 elseif (#state.addedItems > #state.items) then
                     closeWindow()
@@ -634,7 +669,7 @@ local script = {
             print('-------- LOLLO event name = ', name)
             -- LOLLO TODO renew names in state. Cannot be done from game.interface, the game won't allow it
             -- print('LOLLO state = ')
-            -- require('luadump')(true)(state)
+            -- require('entry/luadump')(true)(state)
             --[[ { -- after adding 1 underpass
                 addedItems = {  },
                 built = {  },
@@ -691,24 +726,24 @@ local script = {
                     local newEntity = game.interface.getEntity(param.id)
                     if newEntity ~= nil and newEntity.position then
                         print('LOLLO newEntity = ')
-                        require('luadump')(true)(newEntity)
+                        require('entry/luadump')(true)(newEntity)
                         local nearbyEntities = game.interface.getEntities(
                             {pos = newEntity.position, radius = _maxDistanceForConnectedItems},
                             {type = 'CONSTRUCTION', includeData = true}
                         )
 
                         -- print('LOLLO state before new = ')
-                        -- require('luadump')(true)(state)
+                        -- require('entry/luadump')(true)(state)
                         state.items = {}
                         state.entries = {} --newEntity.fileName == 'street/underpass_entry.con' and {newEntity.id} or {} -- useless, lua will sort the table
                         state.checkedItems = {}
                         state.stations = {} --newEntity.fileName == 'station/rail/mus.con' and {newEntity.id} or {}
                         -- print('LOLLO state at the beginning of new = ')
-                        -- require('luadump')(true)(state)
+                        -- require('entry/luadump')(true)(state)
                         for ii, vv in pairs(nearbyEntities) do
                             -- print('LOLLO ii = ', ii)
                             -- print('LOLLO vv = ', vv)
-                            -- require('luadump')(true)(vv)
+                            -- require('entry/luadump')(true)(vv)
                             if vv.fileName == 'street/underpass_entry.con' then
                                 -- arrayUtils.addUnique(state.entries, vv.id or ii) -- LOLLO added this
                                 -- arrayUtils.addUnique(state.checkedItems, vv.id or ii) -- LOLLO added this
@@ -732,7 +767,7 @@ local script = {
                         -- elseif (param.isStation) then state.stations[#state.stations + 1] = param.id end
 
                         -- print('LOLLO state at the end of new = ')
-                        -- require('luadump')(true)(state)
+                        -- require('entry/luadump')(true)(state)
                     end
                 end
             elseif (name == "uncheck") then

@@ -40,7 +40,7 @@ function data()
     
     local updateFn = function(params)
         print('LOLLO underpass_entry updateFn starting with params = ')
-        -- require('luadump')(true)(params)
+        -- require('entry/luadump')(true)(params)
 
         local result = {
             entryConnectors = {},

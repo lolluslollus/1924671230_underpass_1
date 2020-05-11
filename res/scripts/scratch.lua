@@ -14,7 +14,7 @@ local vec2 = require('vec2')
 local vec3 = require('vec3')
 local vec4 = require('vec4')
 local matrixUtils = require('entry/matrix')
-local luadump = require('luadump')
+local luadump = require('entry/luadump')
 local _idTransf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 local _pi = math.pi -- 3.1415926535 -- 3.141592653589793238462643383279502884197169399375105820974944592
 
