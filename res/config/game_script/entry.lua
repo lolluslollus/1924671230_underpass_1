@@ -260,10 +260,10 @@ local buildStation = function(newEntries, stations, built)
     require('luadump')(true)(state)
     print('LOLLO stations before building station = ')
     require('luadump')(true)(stations)
-    -- print('LOLLO newEntries before building station = ')
-    -- require('luadump')(true)(newEntries)
+    print('LOLLO newEntries before building station = ')
+    require('luadump')(true)(newEntries)
 
-    local ref = built and #built > 0 and built[1] or stations[1]
+    local ref = type(built) == 'table' and #built > 0 and built[1] or stations[1]
 
     local vecRef, rotRef, _ = coor.decomposite(ref.transf)
     local iRot = coor.inv(cov(rotRef))
