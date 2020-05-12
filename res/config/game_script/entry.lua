@@ -1,19 +1,14 @@
-local pipe = require "entry/pipe"
 local func = require "entry/func"
-local coor = require "entry/coor"
+local pipe = require "entry/pipe"
 local arrayUtils = require('/entry/lolloArrayUtils')
-local transfUtil = require('transf')
-local lolloTransfUtils = require('/entry/lolloTransfUtils')
-local vec3 = require('vec3')
-local vec4 = require('vec4')
+local transfUtils = require('/entry/lolloTransfUtils')
 local debugger = require('debugger')
-local luadump = require('entry/luadump')
 local inspect = require('inspect')
-local _idTransf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
+local luadump = require('entry/luadump')
 
+local _idTransf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 local _maxDistanceForConnectedItems = 160.0 -- 250.0
 local _maxMergedStations = 8
-
 
 local state = {
     warningShaderMod = false,
@@ -32,31 +27,19 @@ local state = {
     pos = false
 }
 
-local function myErrorHandlerShort(err)
+local function _myErrorHandlerShort(err)
     print('entry.lua ERROR making the connection popup')
 end
 
-local cloneWoutModulesAndSeed = function(pa)
-    local params = {}
-    for key, value in pairs(pa) do
-        if (key ~= "seed" and key ~= "modules") then
-            params[key] = value
-        end
-    end
-    return params
+local function _cloneWoutModulesAndSeed(params)
+    return arrayUtils.cloneOmittingFields(params, {'modules', 'seed'})
 end
 
-local cloneWoutModulesParamsAndSeed = function(pa)
-    local params = {}
-    for key, value in pairs(pa) do
-        if (key ~= "seed" and key ~= "params" and key ~= "modules") then
-            params[key] = value
-        end
-    end
-    return params
+local function _cloneWoutModulesParamsAndSeed(params)
+    return arrayUtils.cloneOmittingFields(params, {'modules', 'params', 'seed'})
 end
 
-local decomp = function(params)
+local function _decomp(params)
     local group = {}
     for slotId, m in pairs(params.modules) do
         local groupId = (slotId - slotId % 10000) / 10000 % 10
@@ -72,7 +55,7 @@ local decomp = function(params)
     return group
 end
 
-local addEntry = function(id)
+local function _addEntry(id)
     if (state.linkEntries) then
         local entity = game.interface.getEntity(id)
         if (entity) then
@@ -137,13 +120,13 @@ local addEntry = function(id)
                     state.addedItems[#state.addedItems + 1] = id
                 end
             end,
-            myErrorHandlerShort
+            _myErrorHandlerShort
         )
         end
     end
 end
 
-local showWindow = function()
+local function _showWindow()
     if (not state.linkEntries and #state.items > 0) then
         local finishIcon = gui.imageView_create("underpass.link.icon", "ui/construction/street/underpass_entry_op.tga")
         local finishButton = gui.button_create("underpass.link.button", finishIcon)
@@ -184,7 +167,7 @@ local showWindow = function()
     end
 end
 
-local checkFn = function()
+local function _checkFn()
     if (state.linkEntries) then
         local stations = func.filter(state.checkedItems, function(e) return func.contains(state.stations, e) end)
         local entries = func.filter(state.checkedItems, function(e) return func.contains(state.entries, e) end)
@@ -230,7 +213,7 @@ local checkFn = function()
     end
 end
 
-local closeWindow = function()
+local function _closeWindow()
     if (state.linkEntries) then
         local w = state.linkEntries
         state.pos = game.gui.getContentRect(w.id)
@@ -238,7 +221,7 @@ local closeWindow = function()
     end
 end
 
-local shaderWarning = function()
+local function _shaderWarning()
     if (not game.config.shaderMod) then
         if not state.warningShaderMod then
             local textview = gui.textView_create(
@@ -272,29 +255,29 @@ local function _getRetransfedEntryModules(entries, leadingTransf, additionalPara
 
     for i, ent in ipairs(entries) do
         -- LOLLO NOTE not commutative
-        local newTransfE = lolloTransfUtils.mul(ent.transf, lolloTransfUtils.getInverseTransf(leadingTransf))
+        local newTransfE = transfUtils.mul(ent.transf, transfUtils.getInverseTransf(leadingTransf))
 
         for ii, modu in pairs(ent.params.modules) do
             if modu.transf == nil then
                 results[#results + 1] = {
                     metadata = {entry = true},
                     name = "street/underpass_entry.module",
-                    params = cloneWoutModulesAndSeed(ent.params),
-                    -- params = func.with(cloneWoutModulesAndSeed(ent.params), {isStation = true}),
-                    transf = cloneWoutModulesAndSeed(newTransfE),
+                    params = _cloneWoutModulesAndSeed(ent.params),
+                    -- params = func.with(_cloneWoutModulesAndSeed(ent.params), {isStation = true}),
+                    transf = _cloneWoutModulesAndSeed(newTransfE),
                     variant = 0,
                 }
             else
                 -- LOLLO NOTE not commutative
-                -- local newTransfM = lolloTransfUtils.mul(newTransfE, modu.transf) -- no!
+                -- local newTransfM = transfUtils.mul(newTransfE, modu.transf) -- no!
                 -- local newTransfM = transfUtil.mul(newTransfE, modu.transf) -- yes!
-                local newTransfM = lolloTransfUtils.mul(modu.transf, newTransfE) -- yes!
+                local newTransfM = transfUtils.mul(modu.transf, newTransfE) -- yes!
                 -- local newTransfM = transfUtil.mul(modu.transf, newTransfE) -- no!
                 results[#results + 1] = {
                     metadata = {entry = true},
                     name = 'street/underpass_entry.module',
-                    params = cloneWoutModulesAndSeed(ent.params),
-                    transf = cloneWoutModulesAndSeed(newTransfM),
+                    params = _cloneWoutModulesAndSeed(ent.params),
+                    transf = _cloneWoutModulesAndSeed(newTransfM),
                     variant = 0
                 }
             end
@@ -308,14 +291,7 @@ local function _getRetransfedEntryModules(entries, leadingTransf, additionalPara
     return results
 end
 
-local buildStation = function(newEntries, stations) -- , built)
-    -- print('LOLLO state before building station = ')
-    -- require('entry/luadump')(true)(state)
-    -- print('LOLLO stations before building station = ')
-    -- require('entry/luadump')(true)(stations)
-    -- print('LOLLO newEntries before building station = ')
-    -- require('entry/luadump')(true)(newEntries)
-
+local function _getStationsHierarchised(stations)
     local leadingStation = {}
     local otherStations = {}
     -- first look for an unfinalised station
@@ -327,47 +303,51 @@ local buildStation = function(newEntries, stations) -- , built)
     -- if not found, fall back on the first
     if leadingStation.params == nil then leadingStation = stations[1] end
     -- really nothing found, leave
-    if leadingStation.params == nil then return end
+    if leadingStation.params == nil then return {}, {} end
 
     for _, sta in ipairs(stations) do
         if sta.id ~= leadingStation.id then
             otherStations[#otherStations + 1] = sta
         end
     end
-    -- print('LOLLO leading station = ')
-    -- require('entry/luadump')(true)(leadingStation)
-    -- print('LOLLO other stations = ')
-    -- require('entry/luadump')(true)(otherStations)
 
-    local leadingTransf = cloneWoutModulesAndSeed(leadingStation.transf)
+    return leadingStation, otherStations
+end
+
+local function _buildStation(newEntries, stations) -- , built)
+    local leadingStation, otherStations = _getStationsHierarchised(stations)
+    -- really nothing found, leave
+    if leadingStation.params == nil then return end
+
+    local leadingTransf = _cloneWoutModulesAndSeed(leadingStation.transf)
     local newEntriesModules = _getRetransfedEntryModules(newEntries, leadingTransf, {isStation = true})
 
-    -- print('LOLLO newEntriesModules before building station = ')
-    -- luadump(true)(newEntriesModules)
-
-    -- LOLLO TODO add a platform: the connections will disappear
-    
+    -- LOLLO TODO add a platform: the connections will disappear   
     local newLeadingStationModules = {}
-    -- put all the modules of all stations into the leading one, except the new entries, which are not in the station props coz they are new
+    -- put all the modules of all stations into the leading one, except the new entries,
+    -- which are not in the station props coz they are new.
+    -- First the modules that have existed before...
     for _, sta in pairs(stations) do
         if sta.params and sta.params.isFinalized == 1 then
-            local newStaTransf = lolloTransfUtils.mul(sta.transf, lolloTransfUtils.getInverseTransf(leadingTransf))
+            local newStaTransf = transfUtils.mul(sta.transf, transfUtils.getInverseTransf(leadingTransf))
             -- with the leading station, transf should always be _idTransf
 
             for slotId, modu in pairs(sta.params.modules) do        
                 local oldModuTransf = modu.transf or _idTransf
-                local newModuTransf = lolloTransfUtils.mul(oldModuTransf, newStaTransf)
-                newLeadingStationModules[slotId] = modu
-                newLeadingStationModules[slotId].transf = newModuTransf -- newStaTransf
+                local newModuTransf = transfUtils.mul(oldModuTransf, newStaTransf)
+                newLeadingStationModules[slotId] = _cloneWoutModulesAndSeed(modu)
+                newLeadingStationModules[slotId].params.isFinalized = 1
+                newLeadingStationModules[slotId].transf = newModuTransf
             end
 
-            sta.params.isFinalized = 1 -- this can affect the global vars
+            sta.params.isFinalized = 1
         end
     end
 
+    -- ... then the new modules, assigning new indexes
     for _, sta in ipairs(stations) do
         if sta.params == nil or sta.params.isFinalized ~= 1 then
-            local newStaTransf = lolloTransfUtils.mul(sta.transf, lolloTransfUtils.getInverseTransf(leadingTransf))
+            local newStaTransf = transfUtils.mul(sta.transf, transfUtils.getInverseTransf(leadingTransf))
             -- with the leading station, transf should always be _idTransf
 
             local newSlotIdBase
@@ -381,13 +361,14 @@ local buildStation = function(newEntries, stations) -- , built)
             end
 
             for slotId, modu in pairs(sta.params.modules) do
-                local newModu = cloneWoutModulesParamsAndSeed(modu)
-                newModu.params = cloneWoutModulesAndSeed(sta.params)
+                local newModu = _cloneWoutModulesParamsAndSeed(modu)
+                newModu.params = _cloneWoutModulesAndSeed(sta.params)
+                newModu.params.isFinalized = 1
                 newModu.transf = newStaTransf
-                newLeadingStationModules[slotId + newSlotIdBase] = newModu -- only change the index the first time
+                newLeadingStationModules[slotId + newSlotIdBase] = newModu
             end
 
-            sta.params.isFinalized = 1 -- this can affect the global vars
+            sta.params.isFinalized = 1
         end
     end
 
@@ -401,7 +382,8 @@ local buildStation = function(newEntries, stations) -- , built)
         while leadingStation.params.modules[90000 + i] ~= nil do
             i = i + 1
         end
-        leadingStation.params.modules[90000 + i] = cloneWoutModulesAndSeed(modu)
+        leadingStation.params.modules[90000 + i] = _cloneWoutModulesAndSeed(modu)
+        leadingStation.params.modules[90000 + i].params.isFinalized = 1
     end    
 
     -- bulldoze entries, which have been turned into station modules.
@@ -416,18 +398,19 @@ local buildStation = function(newEntries, stations) -- , built)
     for _, ent in pairs(newEntries) do
         game.interface.bulldoze(ent.id)
     end
-    
+
     local newId = game.interface.upgradeConstruction(
         leadingStation.id,
         "station/rail/mus.con",
         -- LOLLO this is like ellipsis in JS, it works fine
-        func.with(
-            cloneWoutModulesAndSeed(leadingStation.params),
-            {
-                modules = cloneWoutModulesAndSeed(leadingStation.params.modules),
-                isFinalized = 1
-            })
-        -- leadingStation.params
+        -- func.with(
+        --     _cloneWoutModulesAndSeed(leadingStation.params),
+        --     {
+        --         modules = _cloneWoutModulesAndSeed(leadingStation.params.modules),
+        --         isFinalized = 1,
+        --     })
+        -- leadingStation.params -- NO!
+        arrayUtils.cloneOmittingFields(leadingStation.params, {'seed'})
     )
     if newId then
         -- if (built and #built > 1) then
@@ -436,26 +419,24 @@ local buildStation = function(newEntries, stations) -- , built)
         --     end
         -- end
 
-        -- state.builtLevelCount[newId] = #stationsProps
         state.builtLevelCount[newId] = #stations
         state.items = func.filter(state.items, function(e) return not func.contains(state.checkedItems, e) end)
-        print('LOLLO state.items after buildStation = ')
+        print('LOLLO state.items after _buildStation = ')
         luadump(true)(state.items)
         state.checkedItems = {}
         state.stations = func.filter(state.stations, function(e) return func.contains(state.items, e) end)
-        print('LOLLO state.stations after buildStation = ')
+        print('LOLLO state.stations after _buildStation = ')
         luadump(true)(state.stations)
         state.entries = func.filter(state.entries, function(e) return func.contains(state.items, e) end)
-        print('LOLLO state.entries after buildStation = ')
+        print('LOLLO state.entries after _buildStation = ')
         luadump(true)(state.entries)
         -- state.built = func.filter(state.built, function(e) return func.contains(state.items, e) end)
     end
-
-    print('LOLLO state after building station = ')
-    require('entry/luadump')(true)(state)
+    -- print('LOLLO state after building station = ')
+    -- require('entry/luadump')(true)(state)
 end
 
-local buildUnderpass = function(incomingEntries)
+local function _buildUnderpass(incomingEntries)
     local leadingEntry = {}
     local otherEntries = {}
     for _, ent in ipairs(incomingEntries) do
@@ -466,8 +447,8 @@ local buildUnderpass = function(incomingEntries)
         end
     end
 
-    local newParams = cloneWoutModulesAndSeed(leadingEntry.params)
-    local leadingTransf = cloneWoutModulesAndSeed(leadingEntry.transf)
+    local newParams = _cloneWoutModulesAndSeed(leadingEntry.params)
+    local leadingTransf = _cloneWoutModulesAndSeed(leadingEntry.transf)
 
     -- bulldoze the older entries, the new one will be the final construction and the others will be its modules
     for _, ent in pairs(otherEntries) do
@@ -478,7 +459,7 @@ local buildUnderpass = function(incomingEntries)
         {
             metadata = {entry = true},
             name = "street/underpass_entry.module",
-            params = cloneWoutModulesAndSeed(leadingEntry.params),
+            params = _cloneWoutModulesAndSeed(leadingEntry.params),
             -- transf = invRotRef * rotE * coor.trans((traslE - traslRef) .. invRotRef),
             transf = _idTransf, -- same as above
             variant = 0,
@@ -528,35 +509,35 @@ local script = {
         -- this happens many times per second
         if state.linkEntries then
             if (#state.items < 1) then
-                closeWindow()
+                _closeWindow()
                 state.addedItems = {}
             else
-                -- LOLLO TODO you check addedItems here, but addEntry adds entries. This is crap.
+                -- LOLLO TODO you check addedItems here, but _addEntry adds entries. This is crap.
                 if (#state.addedItems < #state.items) then -- LOLLO
                 -- if (#state.addedItems <= #state.items) then
                     print('LOLLO about to start adding entries to the popup')
                     -- for i = #state.addedItems + 1, #state.items do
                     --     print('LOLLO about to add entry = ', tostring(state.items[i]))
-                    --     addEntry(state.items[i])
+                    --     _addEntry(state.items[i])
                     -- end
                     -- debugger()
                     for _, ite in pairs(state.items) do
                         if not arrayUtils.arrayHasValue(state.addedItems, ite) then
                             print('LOLLO about to add entry = ', tostring(ite))
-                            addEntry(ite)
+                            _addEntry(ite)
                         end
                     end
                 elseif (#state.addedItems > #state.items) then
-                    closeWindow()
-                    state.showWindow = true
+                    _closeWindow()
+                    state._showWindow = true
                 end
-                checkFn()
+                _checkFn()
             end
-        -- elseif (state.showWindow and #state.items - #state.built > 0) then
-        elseif (state.showWindow and #state.items > 0) then
-            showWindow()
-            checkFn()
-            state.showWindow = false
+        -- elseif (state._showWindow and #state.items - #state.built > 0) then
+        elseif (state._showWindow and #state.items > 0) then
+            _showWindow()
+            _checkFn()
+            state._showWindow = false
         end
     end,
     handleEvent = function(src, id, name, param)
@@ -575,14 +556,14 @@ local script = {
                 -- game.interface.upgradeConstruction(
                 --     param.id,
                 --     e.fileName,
-                --     func.with(cloneWoutModulesAndSeed(e.params), {modules = e.modules, isNotPreview = true})
+                --     func.with(_cloneWoutModulesAndSeed(e.params), {modules = e.modules, isNotPreview = true})
                 -- )
 
                 if param and param.id then
                     local newEntity = game.interface.getEntity(param.id)
                     if newEntity ~= nil and newEntity.position then
-                        print('LOLLO newEntity = ')
-                        require('entry/luadump')(true)(newEntity)
+                        -- print('LOLLO newEntity = ')
+                        -- require('entry/luadump')(true)(newEntity)
                         local nearbyEntities = game.interface.getEntities(
                             {pos = newEntity.position, radius = _maxDistanceForConnectedItems},
                             {type = 'CONSTRUCTION', includeData = true}
@@ -654,18 +635,18 @@ local script = {
                     * pipe.filter(pipe.noop())
                 
                 -- if (#built > 0 and (#entries + #stations) > 0) then
-                --     buildStation(entries, stations, built)
+                --     _buildStation(entries, stations, built)
                 -- elseif (#built > 1) then
-                --     buildStation(entries, stations, built)
+                --     _buildStation(entries, stations, built)
                 -- elseif (#stations == 0 and #entries > 1) then
-                --     buildUnderpass(entries)
+                --     _buildUnderpass(entries)
                 -- elseif (#stations > 0 and #entries > 0) then
-                --     buildStation(entries, stations)
+                --     _buildStation(entries, stations)
                 -- end
                 if (#stations == 0 and #entries > 1) then
-                    buildUnderpass(entries)
+                    _buildUnderpass(entries)
                 else
-                    buildStation(entries, stations)
+                    _buildStation(entries, stations)
                 end
             elseif (name == "select") then
                 -- if not func.contains(state.built, param.id) then
@@ -688,7 +669,7 @@ local script = {
             local entity = game.interface.getEntity(param)
             if (entity and entity.type == "CONSTRUCTION" and entity.fileName == "street/underpass_entry.con") then
                 if func.contains(state.items, entity.id) then
-                    showWindow()
+                    _showWindow()
                 end
             elseif (entity and entity.type == "STATION_GROUP") then
                 local lastVisited = false
@@ -699,9 +680,9 @@ local script = {
                         if c.params and c.params.isFinalized == 1 and func.contains(c.stations, s) then -- LOLLO check this
                         -- if c.params and func.contains(c.stations, s) then
                             lastVisited = c.id
-                            nbGroup = #(func.filter(func.keys(decomp(c.params)), function(g) return g < 9 end))
+                            nbGroup = #(func.filter(func.keys(_decomp(c.params)), function(g) return g < 9 end))
                         elseif func.contains(state.items, c.id) then
-                            showWindow()
+                            _showWindow()
                         end
                     end
                 end
@@ -724,7 +705,7 @@ local script = {
                 for i = 1, #toAdd do
                     local con = toAdd[i]
                     if (con.fileName == [[street/underpass_entry.con]]) then
-                        shaderWarning()
+                        _shaderWarning()
 
                         -- get the id
                         local newId = nil
@@ -746,7 +727,7 @@ local script = {
                                     isEntry = true
                                 }
                             )
-                            state.showWindow = true
+                            state._showWindow = true
                         else
                             print('error in entry.lua: cannot get underpass id')
                         end

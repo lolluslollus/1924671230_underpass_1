@@ -22,6 +22,18 @@ arrayUtils.map = function(arr, func)
     return results
 end
 
+arrayUtils.cloneOmittingFields = function(tab, fields2Omit)
+    if type(fields2Omit) ~= 'table' then fields2Omit = {} end
+
+    local results = {}
+    for key, value in pairs(tab) do
+        if not arrayUtils.arrayHasValue(fields2Omit, key) then
+            results[key] = value
+        end
+    end
+    return results
+end
+
 arrayUtils.concatValues = function(table1, table2)
     if type(table1) ~= 'table' or type(table2) ~= 'table' then
         return
