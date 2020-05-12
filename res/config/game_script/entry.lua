@@ -422,7 +422,12 @@ local buildStation = function(newEntries, stations) -- , built)
 
         for slotId, modu in pairs(sta.params.modules) do
             if sta.params and sta.params.isFinalized == 1 then
+                local oldModuTransf = modu.transf or _idTransf
+                    print('LOLLO oldModuTransf = ') 
+                    luadump(true)(oldModuTransf)
+                local newModuTransf = lolloTransfUtils.mul(oldModuTransf, newStaTransf)
                 newLeadingStationModules[slotId] = modu
+                newLeadingStationModules[slotId].transf = newModuTransf -- newStaTransf
             else
                 local newModu = cloneWoutModulesParamsAndSeed(modu)
                 newModu.params = cloneWoutModulesAndSeed(sta.params)
