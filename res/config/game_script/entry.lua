@@ -12,6 +12,7 @@ local inspect = require('inspect')
 local _idTransf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 
 local _maxDistanceForConnectedItems = 160.0 -- 250.0
+local _maxMergedStations = 8
 
 
 local state = {
@@ -51,6 +52,16 @@ local cloneWoutModulesAndSeed = function(pa)
     local params = {}
     for key, value in pairs(pa) do
         if (key ~= "seed" and key ~= "modules") then
+            params[key] = value
+        end
+    end
+    return params
+end
+
+local cloneWoutModulesParamsAndSeed = function(pa)
+    local params = {}
+    for key, value in pairs(pa) do
+        if (key ~= "seed" and key ~= "params" and key ~= "modules") then
             params[key] = value
         end
     end
@@ -192,7 +203,7 @@ local checkFn = function()
         -- local built = func.filter(state.checkedItems, function(e) return func.contains(state.built, e) end)
         
         if (#stations > 0) then
-            -- if (#stations - #built + func.fold(built, 0, function(t, b) return (state.builtLevelCount[b] or 99) + t end) > 8) then
+            -- if (#stations - #built + func.fold(built, 0, function(t, b) return (state.builtLevelCount[b] or 99) + t end) > _maxMergedStations) then
             --     game.gui.setEnabled(state.linkEntries.button.id, false)
             --     state.linkEntries.desc:setText(_("STATION_MAX_LIMIT"), 200)
             -- elseif (#entries > 0 or (#built > 0 and #stations > 1)) then
@@ -202,7 +213,7 @@ local checkFn = function()
             --     game.gui.setEnabled(state.linkEntries.button.id, false)
             --     state.linkEntries.desc:setText(_("STATION_NEED_ENTRY"), 200)
             -- end
-            if (#stations + func.fold({}, 0, function(t, b) return (state.builtLevelCount[b] or 99) + t end) > 8) then
+            if (#stations + func.fold({}, 0, function(t, b) return (state.builtLevelCount[b] or 99) + t end) > _maxMergedStations) then
                 game.gui.setEnabled(state.linkEntries.button.id, false)
                 state.linkEntries.desc:setText(_("STATION_MAX_LIMIT"), 200)
             elseif #entries > 0 then
@@ -269,7 +280,7 @@ local shaderWarning = function()
 end
 
 local function _getRetransfedEntryModules(entries, leadingTransf, additionalParam)
-    local modules = {}
+    local results = {}
 
     for i, ent in ipairs(entries) do
         -- LOLLO NOTE not commutative
@@ -277,7 +288,7 @@ local function _getRetransfedEntryModules(entries, leadingTransf, additionalPara
 
         for ii, modu in pairs(ent.params.modules) do
             if modu.transf == nil then
-                modules[#modules + 1] = {
+                results[#results + 1] = {
                     metadata = {entry = true},
                     name = "street/underpass_entry.module",
                     params = cloneWoutModulesAndSeed(ent.params),
@@ -291,7 +302,7 @@ local function _getRetransfedEntryModules(entries, leadingTransf, additionalPara
                 -- local newTransfM = transfUtil.mul(newTransfE, modu.transf) -- yes!
                 local newTransfM = lolloTransfUtils.mul(modu.transf, newTransfE) -- yes!
                 -- local newTransfM = transfUtil.mul(modu.transf, newTransfE) -- no!
-                modules[#modules + 1] = {
+                results[#results + 1] = {
                     metadata = {entry = true},
                     name = 'street/underpass_entry.module',
                     params = cloneWoutModulesAndSeed(ent.params),
@@ -301,12 +312,12 @@ local function _getRetransfedEntryModules(entries, leadingTransf, additionalPara
             end
 
             if type(additionalParam) == 'table' then
-                arrayUtils.concatKeysValues(modules[#modules].params, additionalParam)
+                arrayUtils.concatKeysValues(results[#results].params, additionalParam)
             end
         end
     end
 
-    return modules
+    return results
 end
 
 local buildStation = function(newEntries, stations) -- , built)
@@ -366,15 +377,15 @@ local buildStation = function(newEntries, stations) -- , built)
     --     end
     -- end
 
-    local stationsProps = {}
-    for _, sta in ipairs(stations) do
-        table.insert(stationsProps, {
-            modules = sta.params.modules,
-            -- params = func.with(cloneWoutModulesAndSeed(sta.params), {isFinalized = 1}),
-            params = cloneWoutModulesAndSeed(sta.params),
-            transf = sta.transf
-        })
-    end
+    -- local stationsProps = {}
+    -- for _, sta in ipairs(stations) do
+    --     table.insert(stationsProps, {
+    --         modules = sta.params.modules,
+    --         -- params = func.with(cloneWoutModulesAndSeed(sta.params), {isFinalized = 1}),
+    --         params = cloneWoutModulesAndSeed(sta.params),
+    --         transf = sta.transf
+    --     })
+    -- end
 
     -- print('LOLLO stationsProps = ')
     -- require('entry/luadump')(true)(stationsProps)
@@ -394,38 +405,38 @@ local buildStation = function(newEntries, stations) -- , built)
 
     -- LOLLO TODO make two stations nearby. Make one underpass and connect it to both. One of the stations disappears.
     -- LOLLO TODO add a platform: the connections will disappear
-    local modules = {}
+    -- local modules = {}
+    
+    local newLeadingStationModules = {}
     -- put all the modules of all stations into the leading one, except the new entries, which are not in the station props coz they are new
-    for i, staProps in ipairs(stationsProps) do
-        local vec, rot, _ = coor.decomposite(staProps.transf)
-        local transf = iRot * rot * coor.trans((vec - vecRef) .. iRot)
-        print('LOLLO new transf = ')
-        luadump(true)(transf)
+    for staIndex, sta in ipairs(stations) do
+        local vec, rot, _ = coor.decomposite(sta.transf)
+        local newStaTransf = iRot * rot * coor.trans((vec - vecRef) .. iRot)
+        print('LOLLO new station transf = ')
+        luadump(true)(newStaTransf)
         -- debugger()
-        local transf = lolloTransfUtils.mul(staProps.transf, lolloTransfUtils.getInverseTransf(leadingTransf))
-        print('LOLLO new transf = ')
-        luadump(true)(transf)
+        local newStaTransf = lolloTransfUtils.mul(sta.transf, lolloTransfUtils.getInverseTransf(leadingTransf))
+        print('LOLLO new station transf = ')
+        luadump(true)(newStaTransf)
         -- with the leading station, transf should always be _idTransf
 
-        for slotId, modu in pairs(staProps.modules) do
-            -- if modu.params and modu.params.isFinalized == 1 then
-            if staProps.params and staProps.params.isFinalized == 1 then
-                -- modu.params.isFinalized = 1
-                modules[slotId] = modu
+        for slotId, modu in pairs(sta.params.modules) do
+            if sta.params and sta.params.isFinalized == 1 then
+                newLeadingStationModules[slotId] = modu
             else
-                modu.params = cloneWoutModulesAndSeed(staProps.params)
-                -- modu.params.isFinalized = 1
-                modu.transf = transf
+                local newModu = cloneWoutModulesParamsAndSeed(modu)
+                newModu.params = cloneWoutModulesAndSeed(sta.params)
+                newModu.transf = newStaTransf
                 -- local newTransfM = lolloTransfUtils.mul(modu.transf, newTransfE) -- yes!
-                modules[slotId + i * 10000] = modu -- only change the index the first time
+                newLeadingStationModules[slotId + staIndex * 10000] = newModu -- only change the index the first time
             end
         end
-        staProps.params.isFinalized = 1
+        sta.params.isFinalized = 1 -- this can affect the global vars
     end
+    leadingStation.params.modules = newLeadingStationModules
     
-    debugger()
-    print('LOLLO modules first = ')
-    luadump(true)(modules)
+    print('LOLLO leading station first = ')
+    luadump(true)(leadingStation)
     -- print(inspect(modules))
 
     -- LOLLO this replaces previous entries
@@ -435,38 +446,24 @@ local buildStation = function(newEntries, stations) -- , built)
     --     modules[90000 + i] = e
     -- end
     
+    debugger()
     local i = 1
-    if type(stationsProps) == 'table' and type(stationsProps[1]) == 'table' then
-        while stationsProps[1].modules[90000 + i] ~= nil do
-            print('LOLLO old module index = ', 90000 + i)
-            modules[90000 + i] = stationsProps[1].modules[90000 + i]
-            -- modules[90000 + i].params.isFinalized = 1
+    for _, modu in pairs(newEntriesModules) do
+        -- local vec, rot, _ = coor.decomposite(modu.transf)
+        -- modu.transf = iRot * rot * coor.trans((vec - vecRef) .. iRot)
+        -- local newEntTransf = lolloTransfUtils.mul(modu.transf, lolloTransfUtils.getInverseTransf(leadingTransf))
+
+        while leadingStation.params.modules[90000 + i] ~= nil do
             i = i + 1
         end
     
-        local newEntryFirstModuleId = i - 1
-        for iii = 1, #newEntriesModules do
-            local modu = newEntriesModules[iii]
-            -- local vec, rot, _ = coor.decomposite(modu.transf)
-            -- modu.transf = iRot * rot * coor.trans((vec - vecRef) .. iRot)
-            print('LOLLO new module index = ', 90000 + iii + newEntryFirstModuleId)
-            modules[90000 + iii + newEntryFirstModuleId] = cloneWoutModulesAndSeed(modu)
-            -- modules[90000 + iii + newEntryFirstModuleId].params.isFinalized = 1
-        end    
-    else
-        print('LOLLO WARNING: type(stationsProps) =', type(stationsProps), '#stationsProps == ', #stationsProps)
-        for iii = 1, #newEntriesModules do
-            local modu = newEntriesModules[iii]
-            -- local vec, rot, _ = coor.decomposite(modu.transf)
-            -- modu.transf = iRot * rot * coor.trans((vec - vecRef) .. iRot)
-            print('LOLLO warning module index = ', 90000 + iii)
-            modules[90000 + iii] = cloneWoutModulesAndSeed(modu)
-            -- modules[90000 + iii].params.isFinalized = 1
-        end    
-    end
+        print('LOLLO new module index = ', 90000 + i)
+        leadingStation.params.modules[90000 + i] = cloneWoutModulesAndSeed(modu)
+        -- leadingStation.params.modules[90000 + i].transf = newEntTransf
+    end    
 
-    print('LOLLO modules second = ')
-    require('entry/luadump')(true)(modules)
+    print('LOLLO leading station second = ')
+    require('entry/luadump')(true)(leadingStation)
 
     -- bulldoze entries, which have been turned into station modules.
     -- if (built and #built > 1) then local _ = built * pipe.range(2, #built) * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze) end
@@ -488,9 +485,10 @@ local buildStation = function(newEntries, stations) -- , built)
         func.with(
             cloneWoutModulesAndSeed(leadingStation.params),
             {
-                modules = cloneWoutModulesAndSeed(modules),
+                modules = cloneWoutModulesAndSeed(leadingStation.params.modules),
                 isFinalized = 1
             })
+        -- leadingStation.params
     )
     if newId then
         -- if (built and #built > 1) then
@@ -498,11 +496,20 @@ local buildStation = function(newEntries, stations) -- , built)
         --         state.builtLevelCount[b.id] = nil
         --     end
         -- end
-        state.builtLevelCount[newId] = #stationsProps
+
+        debugger()
+        -- state.builtLevelCount[newId] = #stationsProps
+        state.builtLevelCount[newId] = #stations
         state.items = func.filter(state.items, function(e) return not func.contains(state.checkedItems, e) end)
+        print('LOLLO state.items after buildStation = ')
+        luadump(true)(state.items)
         state.checkedItems = {}
         state.stations = func.filter(state.stations, function(e) return func.contains(state.items, e) end)
+        print('LOLLO state.stations after buildStation = ')
+        luadump(true)(state.stations)
         state.entries = func.filter(state.entries, function(e) return func.contains(state.items, e) end)
+        print('LOLLO state.entries after buildStation = ')
+        luadump(true)(state.entries)
         -- state.built = func.filter(state.built, function(e) return func.contains(state.items, e) end)
     end
 
@@ -511,11 +518,6 @@ local buildStation = function(newEntries, stations) -- , built)
 end
 
 local buildUnderpass = function(incomingEntries)
-    -- print('LOLLO state before building underpass = ')
-    -- require('entry/luadump')(true)(state)
-    -- print('LOLLO incomingEntries before building underpass = ')
-    -- require('entry/luadump')(true)(incomingEntries)
-
     local leadingEntry = {}
     local otherEntries = {}
     for _, ent in ipairs(incomingEntries) do
@@ -549,51 +551,6 @@ local buildUnderpass = function(incomingEntries)
         newParams.modules,
         _getRetransfedEntryModules(otherEntries, leadingTransf)
     )
---[[     for i, ent in ipairs(otherEntries) do
-        -- LOLLO NOTE not commutative
-        local newTransfE = lolloTransfUtils.mul(ent.transf, lolloTransfUtils.getInverseTransf(leadingTransf))
-
-        for ii, modu in pairs(ent.params.modules) do
-            if modu.transf == nil then
-                modules[#modules + 1] = {
-                    metadata = {entry = true},
-                    name = "street/underpass_entry.module",
-                    params = cloneWoutModulesAndSeed(ent.params),
-                    transf = cloneWoutModulesAndSeed(newTransfE),
-                    variant = 0,
-                }
-            else
-                -- LOLLO NOTE not commutative
-                -- local newTransfM = lolloTransfUtils.mul(newTransfE, modu.transf) -- no!
-                -- local newTransfM = transfUtil.mul(newTransfE, modu.transf) -- yes!
-                local newTransfM = lolloTransfUtils.mul(modu.transf, newTransfE) -- yes!
-                -- local newTransfM = transfUtil.mul(modu.transf, newTransfE) -- no!
-                modules[#modules + 1] = {
-                    metadata = {entry = true},
-                    name = 'street/underpass_entry.module',
-                    params = cloneWoutModulesAndSeed(ent.params),
-                    transf = cloneWoutModulesAndSeed(newTransfM),
-                    variant = 0
-                }
-            end
-        end
-    end ]]
-
-    -- local newParams = func.with(
-    --     cloneWoutModulesAndSeed(leadingEntry.params),
-    --     {
-    --         modules = func.map(incomingEntries,
-    --             function(entry)
-    --                 local traslE, rotE, _ = coor.decomposite(entry.transf)
-    --                 return {
-    --                     metadata = {entry = true},
-    --                     name = "street/underpass_entry.module",
-    --                     variant = 0,
-    --                     transf = invRotRef * rotE * coor.trans((traslE - traslRef) .. invRotRef),
-    --                     params = cloneWoutModulesAndSeed(entry.params)
-    --                 }
-    --             end)
-    --     })
 
     local newId = game.interface.upgradeConstruction(
         leadingEntry.id,
