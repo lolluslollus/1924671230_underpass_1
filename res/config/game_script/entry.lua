@@ -32,20 +32,8 @@ local state = {
     pos = false
 }
 
-local function myErrorHandler(err)
-    print('entry.lua ERROR: ', err)
-end
-
 local function myErrorHandlerShort(err)
     print('entry.lua ERROR making the connection popup')
-end
-
-local cov = function(m)
-    return func.seqMap({0, 3}, function(r)
-        return func.seqMap({1, 4}, function(c)
-            return m[r * 4 + c]
-        end)
-    end)
 end
 
 local cloneWoutModulesAndSeed = function(pa)
@@ -575,46 +563,7 @@ local script = {
         if (id == "__underpassEvent__") then
             print('-------- LOLLO event name = ', name)
             -- LOLLO TODO renew names in state. Cannot be done from game.interface, the game won't allow it
-            -- print('LOLLO state = ')
-            -- require('entry/luadump')(true)(state)
-            --[[ { -- after adding 1 underpass
-                addedItems = {  },
-                built = {  },
-                builtLevelCount = {  },
-                checkedItems = { 26379 },
-                entries = { 26379 },
-                items = { 26379 },
-                linkEntries = false,
-                pos = false,
-                stations = {  },
-                warningShaderMod = false
-              }
-              LOLLO state = 
-              { -- then I add a station, too
-                addedItems = {  },
-                built = {  },
-                builtLevelCount = {  },
-                checkedItems = { 26379, 25278 },
-                entries = { 26379 },
-                items = { 26379, 25278 },
-                linkEntries = false,
-                pos = false,
-                stations = { 25278 },
-                warningShaderMod = false
-              }
-              LOLLO state = 
-              { -- finally, I connect them together
-                addedItems = {  },
-                built = {  },
-                builtLevelCount = { 25278 = 1 },
-                checkedItems = {  },
-                entries = {  },
-                items = {  },
-                linkEntries = false,
-                pos = false,
-                stations = {  },
-                warningShaderMod = false
-              } ]]
+            
             if (name == "remove") then
                 state.items = func.filter(state.items, function(e) return not func.contains(param, e) end)
                 state.checkedItems = func.filter(state.checkedItems, function(e) return not func.contains(param, e) end)
