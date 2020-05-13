@@ -131,8 +131,6 @@ local function _showWindow()
 
     local finishIcon = gui.imageView_create("underpass.link.icon", "ui/construction/street/underpass_entry_op.tga")
     local finishButton = gui.button_create("underpass.link.button", finishIcon)
-    -- local keepOldIcon = gui.imageView_create("underpass.link.icon", "ui/construction/street/tiles.tga")
-    -- local keepOldButton = gui.button_create("underpass.link.button", finishIcon)
     local finishDesc = gui.textView_create("underpass.link.description", "")
     
     local hLayout = gui.boxLayout_create("underpass.link.hLayout", "HORIZONTAL")
