@@ -9,7 +9,7 @@ local luadump = require('entry/luadump')
 local _baseEntrySlotId = 90000
 local _baseStationComponentSlotId = 10000
 local _idTransf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
-local _maxDistanceForConnectedItems = 160.0 -- 250.0
+local _maxDistanceForConnectedItems = 160.0
 local _maxMergedStations = 8
 
 local state = {
