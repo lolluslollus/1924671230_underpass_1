@@ -56,74 +56,63 @@ local function _decomp(params)
 end
 
 local function _addEntry(id)
-    if (state.linkEntries) then
-        local entity = game.interface.getEntity(id)
-        if (entity) then
-            xpcall(function()
-                local isEntry = entity.fileName == "street/underpass_entry.con"
-                local isStation = entity.fileName == "station/rail/mus.con"
-                local isBuilt = isStation and entity.params and entity.params.isFinalized == 1
-                if (isEntry or isStation) then
-                -- print('LOLLO game.interface = ')
-                -- require('entry/luadump')(true)(game.interface)
-                -- findPath = (),
-                -- get...()
-                -- sendScriptEvent = (),
-                -- setBuildInPauseModeAllowed = (),
-                -- setMarker = (),
-                -- setZone = ()
-                    local layoutId = "underpass.link." .. tostring(id) .. "."
-                    -- print('LOLLO id = ', id)
-                    -- print('LOLLO layoutId = ', layoutId)
-                    -- print('LOLLO entity = ')
-                    -- require('entry/luadump')(true)(entity)
-                    local hLayout = gui.boxLayout_create(layoutId .. "layout", "HORIZONTAL")
-                    local label = gui.textView_create(layoutId .. "label", isEntry and tostring(id) or entity.name .. (isBuilt and _("BUILT") or ""), 300)
-                    local icon = gui.imageView_create(layoutId .. "icon",
-                        isEntry and
-                        "ui/construction/street/underpass_entry_small.tga" or
-                        "ui/construction/station/rail/mus_small.tga"
-                    )
-                    local locateView = gui.imageView_create(layoutId .. "locate.icon", "ui/design/window-content/locate_small.tga")
-                    local locateBtn = gui.button_create(layoutId .. "locate", locateView)
-                    local checkboxView = gui.imageView_create(layoutId .. "checkbox.icon",
-                        func.contains(state.checkedItems, id)
-                        and "ui/design/components/checkbox_valid.tga"
-                        or "ui/design/components/checkbox_invalid.tga"
-                    )
-                    local checkboxBtn = gui.button_create(layoutId .. "checkbox", checkboxView)
-                    
-                    hLayout:addItem(locateBtn)
-                    hLayout:addItem(checkboxBtn)
-                    hLayout:addItem(icon)
-                    hLayout:addItem(label)
-                    
-                    locateBtn:onClick(function()
-                        local pos = entity.position
-                        game.gui.setCamera({pos[1], pos[2], pos[3], -4.77, 0.2})
-                    end)
-                    
-                    checkboxBtn:onClick(
-                        function()
-                            if (func.contains(state.checkedItems, id)) then
-                                checkboxView:setImage("ui/design/components/checkbox_invalid.tga")
-                                game.interface.sendScriptEvent("__underpassEvent__", "uncheck", {id = id})
-                            else
-                                checkboxView:setImage("ui/design/components/checkbox_valid.tga")
-                                game.interface.sendScriptEvent("__underpassEvent__", "check", {id = id})
-                            end
-                        end
-                    )
-                    local comp = gui.component_create(layoutId .. "comp", "")
-                    comp:setLayout(hLayout)
-                    state.linkEntries.layout:addItem(comp)
-                    state.addedItems[#state.addedItems + 1] = id
+    if not (state.linkEntries) then return end
+
+    local entity = game.interface.getEntity(id)
+    if not (entity) then return end
+
+    xpcall(
+        function()
+            local isEntry = entity.fileName == "street/underpass_entry.con"
+            local isStation = entity.fileName == "station/rail/mus.con"
+            local isBuilt = isStation and entity.params and entity.params.isFinalized == 1
+            if not isEntry and not isStation then return end
+
+            local layoutId = "underpass.link." .. tostring(id) .. "."
+            local hLayout = gui.boxLayout_create(layoutId .. "layout", "HORIZONTAL")
+            local label = gui.textView_create(layoutId .. "label", isEntry and tostring(id) or entity.name .. (isBuilt and _("BUILT") or ""), 300)
+            local icon = gui.imageView_create(layoutId .. "icon",
+                isEntry and
+                "ui/construction/street/underpass_entry_small.tga" or
+                "ui/construction/station/rail/mus_small.tga"
+            )
+            local locateView = gui.imageView_create(layoutId .. "locate.icon", "ui/design/window-content/locate_small.tga")
+            local locateBtn = gui.button_create(layoutId .. "locate", locateView)
+            local checkboxView = gui.imageView_create(layoutId .. "checkbox.icon",
+                func.contains(state.checkedItems, id)
+                and "ui/design/components/checkbox_valid.tga"
+                or "ui/design/components/checkbox_invalid.tga"
+            )
+            local checkboxBtn = gui.button_create(layoutId .. "checkbox", checkboxView)
+            
+            hLayout:addItem(locateBtn)
+            hLayout:addItem(checkboxBtn)
+            hLayout:addItem(icon)
+            hLayout:addItem(label)
+            
+            locateBtn:onClick(function()
+                local pos = entity.position
+                game.gui.setCamera({pos[1], pos[2], pos[3], -4.77, 0.2})
+            end)
+            
+            checkboxBtn:onClick(
+                function()
+                    if (func.contains(state.checkedItems, id)) then
+                        checkboxView:setImage("ui/design/components/checkbox_invalid.tga")
+                        game.interface.sendScriptEvent("__underpassEvent__", "uncheck", {id = id})
+                    else
+                        checkboxView:setImage("ui/design/components/checkbox_valid.tga")
+                        game.interface.sendScriptEvent("__underpassEvent__", "check", {id = id})
+                    end
                 end
-            end,
-            _myErrorHandlerShort
-        )
-        end
-    end
+            )
+            local comp = gui.component_create(layoutId .. "comp", "")
+            comp:setLayout(hLayout)
+            state.linkEntries.layout:addItem(comp)
+            state.addedItems[#state.addedItems + 1] = id
+        end,
+        _myErrorHandlerShort
+    )
 end
 
 local function _showWindow()
@@ -166,48 +155,48 @@ local function _showWindow()
 end
 
 local function _checkFn()
-    if (state.linkEntries) then
-        local stations = func.filter(state.checkedItems, function(e) return func.contains(state.stations, e) end)
-        local entries = func.filter(state.checkedItems, function(e) return func.contains(state.entries, e) end)
-        -- local built = func.filter(state.checkedItems, function(e) return func.contains(state.built, e) end)
-        
-        if (#stations > 0) then
-            -- if (#stations - #built + func.fold(built, 0, function(t, b) return (state.builtLevelCount[b] or 99) + t end) > _maxMergedStations) then
-            --     game.gui.setEnabled(state.linkEntries.button.id, false)
-            --     state.linkEntries.desc:setText(_("STATION_MAX_LIMIT"), 200)
-            -- elseif (#entries > 0 or (#built > 0 and #stations > 1)) then
-            --     game.gui.setEnabled(state.linkEntries.button.id, true)
-            --     state.linkEntries.desc:setText(_("STATION_CAN_FINALIZE"), 200)
-            -- else
-            --     game.gui.setEnabled(state.linkEntries.button.id, false)
-            --     state.linkEntries.desc:setText(_("STATION_NEED_ENTRY"), 200)
-            -- end
-            if (#stations + func.fold({}, 0, function(t, b) return (state.builtLevelCount[b] or 99) + t end) > _maxMergedStations) then
-                game.gui.setEnabled(state.linkEntries.button.id, false)
-                state.linkEntries.desc:setText(_("STATION_MAX_LIMIT"), 200)
-            elseif #entries > 0 then -- LOLLO TODO offer this option if entries are already in some station
-                game.gui.setEnabled(state.linkEntries.button.id, true)
-                state.linkEntries.desc:setText(_("STATION_CAN_FINALIZE"), 200)
-            else
-                game.gui.setEnabled(state.linkEntries.button.id, false)
-                state.linkEntries.desc:setText(_("STATION_NEED_ENTRY"), 200)
-            end
+    if not (state.linkEntries) then return end
 
-            state.linkEntries.button.icon:setImage("ui/construction/station/rail/mus_op.tga")
-            state.linkEntries:setTitle(_("STATION_CON"))
-        elseif (#stations == 0) then
-            if (#entries > 1) then
-                game.gui.setEnabled(state.linkEntries.button.id, true)
-                state.linkEntries.desc:setText(_("UNDERPASS_CAN_FINALIZE"), 200)
-            else
-                game.gui.setEnabled(state.linkEntries.button.id, false)
-                state.linkEntries.desc:setText(_("UNDERPASS_NEED_ENTRY"), 200)
-            end
-            state.linkEntries.button.icon:setImage("ui/construction/street/underpass_entry_op.tga")
-            state.linkEntries:setTitle(_("UNDERPASS_CON"))
+    local stations = func.filter(state.checkedItems, function(e) return func.contains(state.stations, e) end)
+    local entries = func.filter(state.checkedItems, function(e) return func.contains(state.entries, e) end)
+    -- local built = func.filter(state.checkedItems, function(e) return func.contains(state.built, e) end)
+    
+    if (#stations > 0) then
+        -- if (#stations - #built + func.fold(built, 0, function(t, b) return (state.builtLevelCount[b] or 99) + t end) > _maxMergedStations) then
+        --     game.gui.setEnabled(state.linkEntries.button.id, false)
+        --     state.linkEntries.desc:setText(_("STATION_MAX_LIMIT"), 200)
+        -- elseif (#entries > 0 or (#built > 0 and #stations > 1)) then
+        --     game.gui.setEnabled(state.linkEntries.button.id, true)
+        --     state.linkEntries.desc:setText(_("STATION_CAN_FINALIZE"), 200)
+        -- else
+        --     game.gui.setEnabled(state.linkEntries.button.id, false)
+        --     state.linkEntries.desc:setText(_("STATION_NEED_ENTRY"), 200)
+        -- end
+        if (#stations + func.fold({}, 0, function(t, b) return (state.builtLevelCount[b] or 99) + t end) > _maxMergedStations) then
+            game.gui.setEnabled(state.linkEntries.button.id, false)
+            state.linkEntries.desc:setText(_("STATION_MAX_LIMIT"), 200)
+        elseif #entries > 0 or #stations > 1 then -- LOLLO TODO offer this option if entries are already in some station
+            game.gui.setEnabled(state.linkEntries.button.id, true)
+            state.linkEntries.desc:setText(_("STATION_CAN_FINALIZE"), 200)
         else
             game.gui.setEnabled(state.linkEntries.button.id, false)
+            state.linkEntries.desc:setText(_("STATION_NEED_ENTRY"), 200)
         end
+
+        state.linkEntries.button.icon:setImage("ui/construction/station/rail/mus_op.tga")
+        state.linkEntries:setTitle(_("STATION_CON"))
+    elseif (#stations == 0) then
+        if (#entries > 1) then
+            game.gui.setEnabled(state.linkEntries.button.id, true)
+            state.linkEntries.desc:setText(_("UNDERPASS_CAN_FINALIZE"), 200)
+        else
+            game.gui.setEnabled(state.linkEntries.button.id, false)
+            state.linkEntries.desc:setText(_("UNDERPASS_NEED_ENTRY"), 200)
+        end
+        state.linkEntries.button.icon:setImage("ui/construction/street/underpass_entry_op.tga")
+        state.linkEntries:setTitle(_("UNDERPASS_CON"))
+    else
+        game.gui.setEnabled(state.linkEntries.button.id, false)
     end
 end
 
@@ -289,44 +278,59 @@ local function _getRetransfedEntryModules(entries, leadingTransf, additionalPara
     return results
 end
 
-local function _getStationsHierarchised(stations)
+local function _getIsStationIndexed(station)
+    if type(station) ~= 'table' or type(station.params) ~= 'table' or type(station.params.modules) ~= 'table' then return false end
+
+    for iii, _ in ipairs(station.params.modules) do
+        if iii < 10000 then return false end
+    end
+
+    return true
+end
+
+local function _getLeadingAndAttachedStations(stations)
     local leadingStation = {}
-    local otherStations = {}
-    -- first look for an unfinalised station
+    local attachedStations = {}
+    -- first look for a station with the initial indexes
     for _, sta in ipairs(stations) do
-        if leadingStation.params == nil and sta.params.isFinalized ~= 1 then
+        if not _getIsStationIndexed(sta) then
             leadingStation = sta
         end
     end
     -- if not found, fall back on the first
     if leadingStation.params == nil then leadingStation = stations[1] end
-    -- really nothing found, leave
+    -- still nothing found, leave
     if leadingStation.params == nil then return {}, {} end
 
     for _, sta in ipairs(stations) do
         if sta.id ~= leadingStation.id then
-            otherStations[#otherStations + 1] = sta
+            attachedStations[#attachedStations + 1] = sta
         end
     end
 
-    return leadingStation, otherStations
+    return leadingStation, attachedStations
 end
 
 local function _buildStation(newEntries, stations) -- , built)
-    local leadingStation, otherStations = _getStationsHierarchised(stations)
-    -- really nothing found, leave
+    local leadingStation, attachedStations = _getLeadingAndAttachedStations(stations)
+    -- nothing found, leave
     if leadingStation.params == nil then return end
 
     local leadingTransf = _cloneWoutModulesAndSeed(leadingStation.transf)
     local newEntriesModules = _getRetransfedEntryModules(newEntries, leadingTransf, {isStation = true})
 
-    -- LOLLO TODO add a platform: the connections will disappear   
-    local newLeadingStationModules = {}
+    -- LOLLO TODO add a platform: the connections will disappear
+    -- LOLLO TODO two or more stations and an underpass in between: the connection is too long and winding.
+    -- it appears that the underpass tries to connect to a station only.
+    -- LOLLO TODO make two stations, each with its own underpass, so they are both finalised.
+    -- add a third underpass between them: one of the stations will disappear.
+
     -- put all the modules of all stations into the leading one, except the new entries,
-    -- which are not in the station props coz they are new.
-    -- First the modules that have existed before...
+    -- which are not in any station props coz they are new.
+    local newLeadingStationModules = {}
+    -- first the modules that have existed before...
     for _, sta in pairs(stations) do
-        if sta.params and sta.params.isFinalized == 1 then
+        if _getIsStationIndexed(sta) then
             local newStaTransf = transfUtils.mul(sta.transf, transfUtils.getInverseTransf(leadingTransf))
             -- with the leading station, transf should always be _idTransf
 
@@ -334,17 +338,14 @@ local function _buildStation(newEntries, stations) -- , built)
                 local oldModuTransf = modu.transf or _idTransf
                 local newModuTransf = transfUtils.mul(oldModuTransf, newStaTransf)
                 newLeadingStationModules[slotId] = _cloneWoutModulesAndSeed(modu)
-                newLeadingStationModules[slotId].params.isFinalized = 1
                 newLeadingStationModules[slotId].transf = newModuTransf
             end
-
-            sta.params.isFinalized = 1
         end
     end
 
     -- ... then the new modules, assigning new indexes
     for _, sta in ipairs(stations) do
-        if sta.params == nil or sta.params.isFinalized ~= 1 then
+        if not _getIsStationIndexed(sta) then
             local newStaTransf = transfUtils.mul(sta.transf, transfUtils.getInverseTransf(leadingTransf))
             -- with the leading station, transf should always be _idTransf
 
@@ -361,47 +362,54 @@ local function _buildStation(newEntries, stations) -- , built)
             for slotId, modu in pairs(sta.params.modules) do
                 local newModu = _cloneWoutModulesParamsAndSeed(modu)
                 newModu.params = _cloneWoutModulesAndSeed(sta.params)
-                newModu.params.isFinalized = 1
                 newModu.transf = newStaTransf
                 newLeadingStationModules[slotId + newSlotIdBase] = newModu
             end
-
-            sta.params.isFinalized = 1
         end
     end
 
     leadingStation.params.modules = newLeadingStationModules
-    
-    -- print('LOLLO leading station first = ')
-    -- luadump(true)(leadingStation)
-    
+
+    -- add new entries into leading station modules
     local i = 1
     for _, modu in pairs(newEntriesModules) do
         while leadingStation.params.modules[90000 + i] ~= nil do
             i = i + 1
         end
         leadingStation.params.modules[90000 + i] = _cloneWoutModulesAndSeed(modu)
-        leadingStation.params.modules[90000 + i].params.isFinalized = 1
-        -- leadingStation.params.hasEntries = true -- LOLLO TODO this is a new param => old games won't have it, use it only if really useful
-    end    
+    end
 
-    -- bulldoze entries, which have been turned into station modules.
+    -- set isFinalized for leading station (1 if it has entries, otherwise 0)
+    leadingStation.params.isFinalized = 0
+    for _, modu in pairs(leadingStation.params.modules) do
+        if type(modu) == 'table' and type(modu.metadata) == 'table' and modu.metadata.entry then
+            leadingStation.params.isFinalized = 1
+            break
+        end
+    end
+
+    -- set isFinalized for leading station modules, the same value as the leading station's
+    for _, modu in pairs(leadingStation.params.modules) do
+        if type(modu) == 'table' and type(modu.params) == 'table' then
+            modu.params.isFinalized = leadingStation.params.isFinalized
+        end
+    end
+
     -- if (built and #built > 1) then local _ = built * pipe.range(2, #built) * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze) end
     -- local _ = stations * (built and pipe.noop() or pipe.range(2, #stations)) * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
     -- bulldoze other stations, which have been integrated into the leading one
-    -- local _ = stations * (pipe.range(2, #stations)) * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
-    for _, sta in pairs(otherStations) do
+    for _, sta in pairs(attachedStations) do
         game.interface.bulldoze(sta.id)
     end
-    -- local _ = newEntries * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
+    -- bulldoze entries, which have been turned into station modules.
     for _, ent in pairs(newEntries) do
         game.interface.bulldoze(ent.id)
     end
 
+    -- commit the leading station
     local newId = game.interface.upgradeConstruction(
         leadingStation.id,
         "station/rail/mus.con",
-        -- LOLLO this is like ellipsis in JS, it works fine
         -- func.with(
         --     _cloneWoutModulesAndSeed(leadingStation.params),
         --     {
@@ -411,6 +419,8 @@ local function _buildStation(newEntries, stations) -- , built)
         -- leadingStation.params -- NO!
         arrayUtils.cloneOmittingFields(leadingStation.params, {'seed'})
     )
+
+    -- update global variables
     if newId then
         -- if (built and #built > 1) then
         --     for _, b in ipairs(built) do
@@ -420,19 +430,11 @@ local function _buildStation(newEntries, stations) -- , built)
 
         state.builtLevelCount[newId] = #stations
         state.items = func.filter(state.items, function(e) return not func.contains(state.checkedItems, e) end)
-        print('LOLLO state.items after _buildStation = ')
-        luadump(true)(state.items)
         state.checkedItems = {}
         state.stations = func.filter(state.stations, function(e) return func.contains(state.items, e) end)
-        print('LOLLO state.stations after _buildStation = ')
-        luadump(true)(state.stations)
         state.entries = func.filter(state.entries, function(e) return func.contains(state.items, e) end)
-        print('LOLLO state.entries after _buildStation = ')
-        luadump(true)(state.entries)
         -- state.built = func.filter(state.built, function(e) return func.contains(state.items, e) end)
     end
-    -- print('LOLLO state after building station = ')
-    -- require('entry/luadump')(true)(state)
 end
 
 local function _buildUnderpass(incomingEntries)
@@ -514,7 +516,7 @@ local script = {
                 if (#state.addedItems < #state.items) then
                     print('LOLLO about to start adding entries to the popup')
                     for _, ite in pairs(state.items) do
-                        if not arrayUtils.arrayHasValue(state.addedItems, ite) then
+                        if not func.contains(state.addedItems, ite) then
                             print('LOLLO about to add entry = ', tostring(ite))
                             _addEntry(ite)
                         end
@@ -554,30 +556,24 @@ local script = {
                 if param and param.id then
                     local newEntity = game.interface.getEntity(param.id)
                     if newEntity ~= nil and newEntity.position then
-                        -- print('LOLLO newEntity = ')
-                        -- require('entry/luadump')(true)(newEntity)
                         local nearbyEntities = game.interface.getEntities(
                             {pos = newEntity.position, radius = _maxDistanceForConnectedItems},
                             {type = 'CONSTRUCTION', includeData = true}
                         )
 
-                        -- print('LOLLO state before new = ')
-                        -- require('entry/luadump')(true)(state)
                         state.items = {}
                         state.entries = {} --newEntity.fileName == 'street/underpass_entry.con' and {newEntity.id} or {} -- useless, lua will sort the table
                         state.checkedItems = {}
                         state.stations = {} --newEntity.fileName == 'station/rail/mus.con' and {newEntity.id} or {}
-                        -- print('LOLLO state at the beginning of new = ')
-                        -- require('entry/luadump')(true)(state)
-                        for ii, vv in pairs(nearbyEntities) do
-                            if vv.fileName == 'street/underpass_entry.con' then
-                                state.entries[#state.entries + 1] = vv.id -- LOLLO added this
-                                state.checkedItems[#state.checkedItems + 1] = vv.id -- LOLLO added this
-                                state.items[#state.items + 1] = vv.id -- LOLLO added this
-                            elseif vv.fileName == 'station/rail/mus.con' then
-                                state.stations[#state.stations + 1] = vv.id -- LOLLO added this
-                                state.checkedItems[#state.checkedItems + 1] = vv.id -- LOLLO added this
-                                state.items[#state.items + 1] = vv.id -- LOLLO added this
+                        for _, nearbyEntity in pairs(nearbyEntities) do
+                            if nearbyEntity.fileName == 'street/underpass_entry.con' then
+                                state.entries[#state.entries + 1] = nearbyEntity.id -- LOLLO added this
+                                state.checkedItems[#state.checkedItems + 1] = nearbyEntity.id -- LOLLO added this
+                                state.items[#state.items + 1] = nearbyEntity.id -- LOLLO added this
+                            elseif nearbyEntity.fileName == 'station/rail/mus.con' then
+                                state.stations[#state.stations + 1] = nearbyEntity.id -- LOLLO added this
+                                state.checkedItems[#state.checkedItems + 1] = nearbyEntity.id -- LOLLO added this
+                                state.items[#state.items + 1] = nearbyEntity.id -- LOLLO added this
                             end
                         end
 
@@ -641,7 +637,6 @@ local script = {
                     state.builtLevelCount[param.id] = param.nbGroup
                 -- end
             elseif (name == "window.close") then
-                -- LOLLO TODO this is also funny
                 -- state.items = func.filter(state.items, function(i) return not func.contains(state.built, i) or func.contains(state.checkedItems, i) end)
                 -- state.built = func.filter(state.built, function(b) return func.contains(state.checkedItems, b) end)
             end
@@ -665,7 +660,6 @@ local script = {
                 -- local lastVisited = false
                 -- local nbGroup = 0
                 local allUndergroundStationConstructions = game.interface.getEntities({pos = entity.pos, radius = 9999}, {type = "CONSTRUCTION", includeData = true, fileName = "station/rail/mus.con"})
-                debugger()
                 -- the game distinguishes constructions, stations and station groups.
                 -- Constructions and stations are not selected, only station groups, which do not contain a lot of data.
                 -- This is why we need this loop.
@@ -675,11 +669,11 @@ local script = {
                             if con.params and con.params.isFinalized == 1 then
                                 -- this is to assign builtLevelCount to every station in the selected group
                                 -- lastVisited = con.id
-                                -- LOLLO TODO check this: I do this for every station, it used to be for the lastVisited only.
                                 -- nbGroup = #(func.filter(func.keys(_decomp(con.params)), function(g) return g < 9 end))
                                 if con.id then
                                     local nbGroup = #(func.filter(func.keys(_decomp(con.params)), function(g) return g < 9 end))
                                     game.interface.sendScriptEvent("__underpassEvent__", "select", {id = con.id, nbGroup = nbGroup})
+                                    print('LOLLO select event sent to work thread')
                                 end
                             elseif func.contains(state.items, con.id) then
                                 -- _showWindow()
@@ -696,9 +690,9 @@ local script = {
                     -- _showWindow()
                     state.showWindow = true
                 end
-            elseif entity then
-                print('LOLLO selected entity = ')
-                luadump(true)(entity)
+            -- elseif entity then
+            --     print('LOLLO selected entity = ')
+            --     luadump(true)(entity)
             end
         elseif name == "builder.apply" then
             local toRemove = param.proposal.toRemove
