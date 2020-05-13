@@ -336,7 +336,7 @@ local function _buildStation(newEntries, stations) -- , built)
     local leadingTransf = _cloneWoutModulesAndSeed(leadingStation.transf)
     local newEntriesModules = _getRetransfedEntryModules(newEntries, leadingTransf, {isStation = true})
 
-    -- LOLLO TODO add a platform: the connections will disappear
+    -- LOLLO NOTE add a platform: the connections will disappear. It will reappear when you destroy the new platform or add stairs up
     -- LOLLO TODO two or more stations and an underpass in between: the connection is too long and winding.
     -- it appears that the underpass tries to connect to a station only.
 
