@@ -311,6 +311,21 @@ local function _getLeadingAndAttachedStations(stations)
     return leadingStation, attachedStations
 end
 
+local function _getSlotIdBase(leadingModules, attachedModules, minBase)
+    local result
+    for i = minBase, _maxMergedStations do
+        result = i * 10000
+        local isNewSlotIdBaseOk = true
+        -- for slotId, _ in pairs(sta.params.modules) do
+        for slotId, _ in pairs(attachedModules) do
+            -- if newLeadingStationModules[slotId + newSlotIdBase] ~= nil then isNewSlotIdBaseOk = false break end
+            if leadingModules[slotId + result] ~= nil then isNewSlotIdBaseOk = false break end
+        end
+        if isNewSlotIdBaseOk then return result end
+    end
+    return -1
+end
+
 local function _buildStation(newEntries, stations) -- , built)
     local leadingStation, attachedStations = _getLeadingAndAttachedStations(stations)
     -- nothing found, leave
@@ -322,8 +337,11 @@ local function _buildStation(newEntries, stations) -- , built)
     -- LOLLO TODO add a platform: the connections will disappear
     -- LOLLO TODO two or more stations and an underpass in between: the connection is too long and winding.
     -- it appears that the underpass tries to connect to a station only.
-    -- LOLLO TODO make two stations, each with its own underpass, so they are both finalised.
-    -- add a third underpass between them: one of the stations will disappear.
+
+    -- print('LOLLO leading station =')
+    -- luadump(true)(leadingStation)
+    -- print('LOLLO attached stations =')
+    -- luadump(true)(attachedStations)
 
     -- put all the modules of all stations into the leading one, except the new entries,
     -- which are not in any station props coz they are new.
@@ -334,41 +352,50 @@ local function _buildStation(newEntries, stations) -- , built)
             local newStaTransf = transfUtils.mul(sta.transf, transfUtils.getInverseTransf(leadingTransf))
             -- with the leading station, transf should always be _idTransf
 
-            for slotId, modu in pairs(sta.params.modules) do        
+            local newSlotIdBase = _getSlotIdBase(newLeadingStationModules, sta.params.modules, 0)
+            if newSlotIdBase < 0 then break end -- LOLLO TODO raise some error
+
+            for slotId, modu in pairs(sta.params.modules) do
                 local oldModuTransf = modu.transf or _idTransf
                 local newModuTransf = transfUtils.mul(oldModuTransf, newStaTransf)
-                newLeadingStationModules[slotId] = _cloneWoutModulesAndSeed(modu)
-                newLeadingStationModules[slotId].transf = newModuTransf
+                if modu.metadata and modu.metadata.entry then
+                    newEntriesModules[#newEntriesModules + 1] = modu
+                    newEntriesModules[#newEntriesModules].transf = newModuTransf
+                else
+                    newLeadingStationModules[slotId + newSlotIdBase] = _cloneWoutModulesAndSeed(modu)
+                    newLeadingStationModules[slotId + newSlotIdBase].transf = newModuTransf
+                end
             end
         end
     end
 
-    -- ... then the new modules, assigning new indexes
+    -- ... then the new modules
     for _, sta in ipairs(stations) do
         if not _getIsStationIndexed(sta) then
             local newStaTransf = transfUtils.mul(sta.transf, transfUtils.getInverseTransf(leadingTransf))
             -- with the leading station, transf should always be _idTransf
 
-            local newSlotIdBase
-            for i = 1, _maxMergedStations do
-                newSlotIdBase = i * 10000
-                local isNewSlotIdBaseOk = true
-                for slotId, _ in pairs(sta.params.modules) do
-                    if newLeadingStationModules[slotId + newSlotIdBase] ~= nil then isNewSlotIdBaseOk = false break end
-                end
-                if isNewSlotIdBaseOk then break end
-            end
+            local newSlotIdBase = _getSlotIdBase(newLeadingStationModules, sta.params.modules, 1)
+            if newSlotIdBase < 0 then break end -- LOLLO TODO raise some error
 
             for slotId, modu in pairs(sta.params.modules) do
-                local newModu = _cloneWoutModulesParamsAndSeed(modu)
-                newModu.params = _cloneWoutModulesAndSeed(sta.params)
-                newModu.transf = newStaTransf
-                newLeadingStationModules[slotId + newSlotIdBase] = newModu
+                if modu.metadata and modu.metadata.entry then
+                    newEntriesModules[#newEntriesModules + 1] = modu
+                    newEntriesModules[#newEntriesModules].transf = newStaTransf
+                else
+                    local newModu = _cloneWoutModulesParamsAndSeed(modu)
+                    newModu.params = _cloneWoutModulesAndSeed(sta.params)
+                    newModu.transf = newStaTransf
+                    newLeadingStationModules[slotId + newSlotIdBase] = newModu
+                end
             end
         end
     end
 
     leadingStation.params.modules = newLeadingStationModules
+
+    -- print('LOLLO leading station with new modules =')
+    -- luadump(true)(leadingStation)
 
     -- add new entries into leading station modules
     local i = 1
@@ -394,6 +421,9 @@ local function _buildStation(newEntries, stations) -- , built)
             modu.params.isFinalized = leadingStation.params.isFinalized
         end
     end
+
+    -- print('LOLLO leading station with new modules =')
+    -- luadump(true)(leadingStation)
 
     -- if (built and #built > 1) then local _ = built * pipe.range(2, #built) * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze) end
     -- local _ = stations * (built and pipe.noop() or pipe.range(2, #stations)) * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
@@ -626,8 +656,6 @@ local script = {
                     _buildStation(entries, stations)
                 end
             elseif (name == "select") then
-                print('LOLLO state before event ', name, ' = ')
-                luadump(true)(state)    
                 -- if not func.contains(state.built, param.id) then
                     arrayUtils.addUnique(state.items, param.id)
                     -- state.items[#state.items + 1] = param.id
@@ -640,8 +668,8 @@ local script = {
                 -- state.items = func.filter(state.items, function(i) return not func.contains(state.built, i) or func.contains(state.checkedItems, i) end)
                 -- state.built = func.filter(state.built, function(b) return func.contains(state.checkedItems, b) end)
             end
-            print('LOLLO state after event ', name, ' = ')
-            luadump(true)(state)
+            -- print('LOLLO state after event ', name, ' = ')
+            -- luadump(true)(state)
         end
     end,
     guiHandleEvent = function(id, name, param)
