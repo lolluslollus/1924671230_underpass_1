@@ -377,6 +377,7 @@ local function _buildStation(newEntries, stations) -- , built)
             local newStaTransf = transfUtils.mul(sta.transf, transfUtils.getInverseTransf(leadingTransf))
             -- with the leading station, transf should always be _idTransf
 
+            -- when a station receives its first entry, bump its slot ids
             local newSlotIdBase = _getSlotIdBase(newLeadingStationModules, sta.params.modules, 1)
             if newSlotIdBase < 0 then break end -- LOLLO TODO raise some error
 
