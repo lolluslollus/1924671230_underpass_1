@@ -507,14 +507,13 @@ local script = {
         end
     end,
     guiUpdate = function()
-        -- this happens many times per second
+        -- this fires many times per second
         if state.linkEntries then
             if (#state.items < 1) then
                 _closeWindow()
                 state.addedItems = {}
             else
-                if (#state.addedItems < #state.items) then -- LOLLO
-                -- if (#state.addedItems <= #state.items) then
+                if (#state.addedItems < #state.items) then
                     print('LOLLO about to start adding entries to the popup')
                     for _, ite in pairs(state.items) do
                         if not arrayUtils.arrayHasValue(state.addedItems, ite) then
@@ -633,6 +632,8 @@ local script = {
                     _buildStation(entries, stations)
                 end
             elseif (name == "select") then
+                print('LOLLO state before event ', name, ' = ')
+                luadump(true)(state)    
                 -- if not func.contains(state.built, param.id) then
                     arrayUtils.addUnique(state.items, param.id)
                     -- state.items[#state.items + 1] = param.id
@@ -651,34 +652,55 @@ local script = {
         end
     end,
     guiHandleEvent = function(id, name, param)
+        -- param is the id of the selected item.
         if (name == "select") then
             print('LOLLO guiHandleEvent with name = select')
             local entity = game.interface.getEntity(param)
             print('LOLLO entity type = ', entity and entity.type or 'NONE')
             if (entity and entity.type == "CONSTRUCTION" and entity.fileName == "street/underpass_entry.con") then
                 if func.contains(state.items, entity.id) then
-                    _showWindow()
+                    -- _showWindow()
+                    state.showWindow = true
                 end
             elseif (entity and entity.type == "STATION_GROUP") then
-                local lastVisited = false
-                local nbGroup = 0
-                local cons = game.interface.getEntities({pos = entity.pos, radius = 9999}, {type = "CONSTRUCTION", includeData = true, fileName = "station/rail/mus.con"})
+                local isShowWindow = false
+                -- local lastVisited = false
+                -- local nbGroup = 0
+                local allUndergroundStationConstructions = game.interface.getEntities({pos = entity.pos, radius = 9999}, {type = "CONSTRUCTION", includeData = true, fileName = "station/rail/mus.con"})
                 debugger()
-                for _, sta in ipairs(entity.stations) do
-                    for _, con in pairs(cons) do
-                        -- if con.params and con.params.isFinalized == 1 and func.contains(con.stations, sta) then -- LOLLO check this
-                        if con.params and func.contains(con.stations, sta) then
-                            lastVisited = con.id
-                            nbGroup = #(func.filter(func.keys(_decomp(con.params)), function(g) return g < 9 end))
-                        elseif func.contains(state.items, con.id) then
-                            _showWindow()
+                -- the game distinguishes constructions, stations and station groups.
+                -- Constructions and stations are not selected, only station groups, which do not contain a lot of data.
+                -- This is why we need this loop.
+                for _, staId in ipairs(entity.stations) do
+                    for _, con in pairs(allUndergroundStationConstructions) do
+                        if func.contains(con.stations, staId) then
+                            if con.params and con.params.isFinalized == 1 then
+                                -- this is to assign builtLevelCount to every station in the selected group
+                                -- lastVisited = con.id
+                                -- LOLLO TODO check this: I do this for every station, it used to be for the lastVisited only.
+                                -- nbGroup = #(func.filter(func.keys(_decomp(con.params)), function(g) return g < 9 end))
+                                if con.id then
+                                    local nbGroup = #(func.filter(func.keys(_decomp(con.params)), function(g) return g < 9 end))
+                                    game.interface.sendScriptEvent("__underpassEvent__", "select", {id = con.id, nbGroup = nbGroup})
+                                end
+                            elseif func.contains(state.items, con.id) then
+                                -- _showWindow()
+                                isShowWindow = true
+                            end
                         end
                     end
                 end
-                -- this is to assign a value to builtLevelCount, which was not there in previous releases
-                if lastVisited then
-                    game.interface.sendScriptEvent("__underpassEvent__", "select", {id = lastVisited, nbGroup = nbGroup})
+                -- this is to assign a value to builtLevelCount to the lastVisited station (original code)
+                -- if lastVisited then
+                --     game.interface.sendScriptEvent("__underpassEvent__", "select", {id = lastVisited, nbGroup = nbGroup})
+                -- end
+                if isShowWindow then 
+                    -- _showWindow()
+                    state.showWindow = true
                 end
+            elseif entity then
+                print('LOLLO selected entity = ')
+                luadump(true)(entity)
             end
         elseif name == "builder.apply" then
             local toRemove = param.proposal.toRemove
