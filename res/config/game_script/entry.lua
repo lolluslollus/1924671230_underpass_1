@@ -127,44 +127,44 @@ local function _addEntry(id)
 end
 
 local function _showWindow()
-    if (not state.linkEntries and #state.items > 0) then
-        local finishIcon = gui.imageView_create("underpass.link.icon", "ui/construction/street/underpass_entry_op.tga")
-        local finishButton = gui.button_create("underpass.link.button", finishIcon)
-        -- local keepOldIcon = gui.imageView_create("underpass.link.icon", "ui/construction/street/tiles.tga")
-        -- local keepOldButton = gui.button_create("underpass.link.button", finishIcon)
-        local finishDesc = gui.textView_create("underpass.link.description", "")
-        
-        local hLayout = gui.boxLayout_create("underpass.link.hLayout", "HORIZONTAL")
-        
-        hLayout:addItem(finishButton)
-        hLayout:addItem(finishDesc)
-        local comp = gui.component_create("underpass.link.hComp", "")
-        comp:setLayout(hLayout)
-        
-        local vLayout = gui.boxLayout_create("underpass.link.vLayout", "VERTICAL")
-        vLayout:addItem(comp)
-        
-        state.linkEntries = gui.window_create("underpass.link.window", _("UNDERPASS_CON"), vLayout)
-        state.linkEntries.desc = finishDesc
-        state.linkEntries.button = finishButton
-        state.linkEntries.button.icon = finishIcon
-        state.linkEntries.layout = vLayout
-        
-        state.linkEntries:onClose(function()
-            state.linkEntries = false
-            state.addedItems = {}
-            game.interface.sendScriptEvent("__underpassEvent__", "window.close", {})
-        end)
-        
-        finishButton:onClick(function()
-            if (state.linkEntries) then
-                state.linkEntries:close()
-                game.interface.sendScriptEvent("__underpassEvent__", "construction", {})
-            end
-        end)
-        
-        game.gui.window_setPosition(state.linkEntries.id, table.unpack(state.pos and {state.pos[1], state.pos[2]} or {200, 200}))
-    end
+    if state.linkEntries or #state.items < 1 then return end
+
+    local finishIcon = gui.imageView_create("underpass.link.icon", "ui/construction/street/underpass_entry_op.tga")
+    local finishButton = gui.button_create("underpass.link.button", finishIcon)
+    -- local keepOldIcon = gui.imageView_create("underpass.link.icon", "ui/construction/street/tiles.tga")
+    -- local keepOldButton = gui.button_create("underpass.link.button", finishIcon)
+    local finishDesc = gui.textView_create("underpass.link.description", "")
+    
+    local hLayout = gui.boxLayout_create("underpass.link.hLayout", "HORIZONTAL")
+    
+    hLayout:addItem(finishButton)
+    hLayout:addItem(finishDesc)
+    local comp = gui.component_create("underpass.link.hComp", "")
+    comp:setLayout(hLayout)
+    
+    local vLayout = gui.boxLayout_create("underpass.link.vLayout", "VERTICAL")
+    vLayout:addItem(comp)
+    
+    state.linkEntries = gui.window_create("underpass.link.window", _("UNDERPASS_CON"), vLayout)
+    state.linkEntries.desc = finishDesc
+    state.linkEntries.button = finishButton
+    state.linkEntries.button.icon = finishIcon
+    state.linkEntries.layout = vLayout
+    
+    state.linkEntries:onClose(function()
+        state.linkEntries = false
+        state.addedItems = {}
+        game.interface.sendScriptEvent("__underpassEvent__", "window.close", {})
+    end)
+    
+    finishButton:onClick(function()
+        if (state.linkEntries) then
+            state.linkEntries:close()
+            game.interface.sendScriptEvent("__underpassEvent__", "construction", {})
+        end
+    end)
+    
+    game.gui.window_setPosition(state.linkEntries.id, table.unpack(state.pos and {state.pos[1], state.pos[2]} or {200, 200}))
 end
 
 local function _checkFn()
