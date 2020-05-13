@@ -513,15 +513,9 @@ local script = {
                 _closeWindow()
                 state.addedItems = {}
             else
-                -- LOLLO TODO you check addedItems here, but _addEntry adds entries. This is crap.
                 if (#state.addedItems < #state.items) then -- LOLLO
                 -- if (#state.addedItems <= #state.items) then
                     print('LOLLO about to start adding entries to the popup')
-                    -- for i = #state.addedItems + 1, #state.items do
-                    --     print('LOLLO about to add entry = ', tostring(state.items[i]))
-                    --     _addEntry(state.items[i])
-                    -- end
-                    -- debugger()
                     for _, ite in pairs(state.items) do
                         if not arrayUtils.arrayHasValue(state.addedItems, ite) then
                             print('LOLLO about to add entry = ', tostring(ite))
