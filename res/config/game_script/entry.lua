@@ -6,6 +6,8 @@ local debugger = require('debugger')
 local inspect = require('inspect')
 local luadump = require('entry/luadump')
 
+local _baseEntrySlotId = 90000
+local _baseStationComponentSlotId = 10000
 local _idTransf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 local _maxDistanceForConnectedItems = 160.0 -- 250.0
 local _maxMergedStations = 8
@@ -42,7 +44,7 @@ end
 local function _decomp(params)
     local group = {}
     for slotId, m in pairs(params.modules) do
-        local groupId = (slotId - slotId % 10000) / 10000 % 10
+        local groupId = (slotId - slotId % _baseStationComponentSlotId) / _baseStationComponentSlotId % 10
         if not group[groupId] then
             group[groupId] = {
                 modules = {},
@@ -50,7 +52,7 @@ local function _decomp(params)
                 transf = m.transf
             }
         end
-        group[groupId].modules[slotId - groupId * 10000] = m
+        group[groupId].modules[slotId - groupId * _baseStationComponentSlotId] = m
     end
     return group
 end
@@ -282,7 +284,7 @@ local function _getIsStationIndexed(station)
     if type(station) ~= 'table' or type(station.params) ~= 'table' or type(station.params.modules) ~= 'table' then return false end
 
     for iii, _ in ipairs(station.params.modules) do
-        if iii < 10000 then return false end
+        if iii < _baseStationComponentSlotId then return false end
     end
 
     return true
@@ -314,7 +316,7 @@ end
 local function _getSlotIdBase(leadingModules, attachedModules, minBase)
     local result
     for i = minBase, _maxMergedStations do
-        result = i * 10000
+        result = i * _baseStationComponentSlotId
         local isNewSlotIdBaseOk = true
         -- for slotId, _ in pairs(sta.params.modules) do
         for slotId, _ in pairs(attachedModules) do
@@ -400,10 +402,10 @@ local function _buildStation(newEntries, stations) -- , built)
     -- add new entries into leading station modules
     local i = 1
     for _, modu in pairs(newEntriesModules) do
-        while leadingStation.params.modules[90000 + i] ~= nil do
+        while leadingStation.params.modules[_baseEntrySlotId + i] ~= nil do
             i = i + 1
         end
-        leadingStation.params.modules[90000 + i] = _cloneWoutModulesAndSeed(modu)
+        leadingStation.params.modules[_baseEntrySlotId + i] = _cloneWoutModulesAndSeed(modu)
     end
 
     -- set isFinalized for leading station (1 if it has entries, otherwise 0)
