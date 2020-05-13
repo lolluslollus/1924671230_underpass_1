@@ -73,8 +73,8 @@ local function _addEntry(id)
                 -- setMarker = (),
                 -- setZone = ()
                     local layoutId = "underpass.link." .. tostring(id) .. "."
-                    print('LOLLO id = ', id)
-                    print('LOLLO layoutId = ', layoutId)
+                    -- print('LOLLO id = ', id)
+                    -- print('LOLLO layoutId = ', layoutId)
                     -- print('LOLLO entity = ')
                     -- require('entry/luadump')(true)(entity)
                     local hLayout = gui.boxLayout_create(layoutId .. "layout", "HORIZONTAL")
@@ -187,7 +187,7 @@ local function _checkFn()
             if (#stations + func.fold({}, 0, function(t, b) return (state.builtLevelCount[b] or 99) + t end) > _maxMergedStations) then
                 game.gui.setEnabled(state.linkEntries.button.id, false)
                 state.linkEntries.desc:setText(_("STATION_MAX_LIMIT"), 200)
-            elseif #entries > 0 then
+            elseif #entries > 0 then -- LOLLO TODO offer this option if entries are already in some station
                 game.gui.setEnabled(state.linkEntries.button.id, true)
                 state.linkEntries.desc:setText(_("STATION_CAN_FINALIZE"), 200)
             else
@@ -384,6 +384,7 @@ local function _buildStation(newEntries, stations) -- , built)
         end
         leadingStation.params.modules[90000 + i] = _cloneWoutModulesAndSeed(modu)
         leadingStation.params.modules[90000 + i].params.isFinalized = 1
+        -- leadingStation.params.hasEntries = true -- LOLLO TODO this is a new param => old games won't have it, use it only if really useful
     end    
 
     -- bulldoze entries, which have been turned into station modules.
@@ -578,20 +579,11 @@ local script = {
                         -- print('LOLLO state at the beginning of new = ')
                         -- require('entry/luadump')(true)(state)
                         for ii, vv in pairs(nearbyEntities) do
-                            -- print('LOLLO ii = ', ii)
-                            -- print('LOLLO vv = ', vv)
-                            -- require('entry/luadump')(true)(vv)
                             if vv.fileName == 'street/underpass_entry.con' then
-                                -- arrayUtils.addUnique(state.entries, vv.id or ii) -- LOLLO added this
-                                -- arrayUtils.addUnique(state.checkedItems, vv.id or ii) -- LOLLO added this
-                                -- arrayUtils.addUnique(state.items, vv.id or ii) -- LOLLO added this
                                 state.entries[#state.entries + 1] = vv.id -- LOLLO added this
                                 state.checkedItems[#state.checkedItems + 1] = vv.id -- LOLLO added this
                                 state.items[#state.items + 1] = vv.id -- LOLLO added this
                             elseif vv.fileName == 'station/rail/mus.con' then
-                                -- arrayUtils.addUnique(state.stations, vv.id or ii) -- LOLLO added this
-                                -- arrayUtils.addUnique(state.checkedItems, vv.id or ii) -- LOLLO added this
-                                -- arrayUtils.addUnique(state.items, vv.id or ii) -- LOLLO added this
                                 state.stations[#state.stations + 1] = vv.id -- LOLLO added this
                                 state.checkedItems[#state.checkedItems + 1] = vv.id -- LOLLO added this
                                 state.items[#state.items + 1] = vv.id -- LOLLO added this
@@ -602,17 +594,15 @@ local script = {
                         -- state.checkedItems[#state.checkedItems + 1] = param.id
                         -- if (param.isEntry) then state.entries[#state.entries + 1] = param.id
                         -- elseif (param.isStation) then state.stations[#state.stations + 1] = param.id end
-
-                        -- print('LOLLO state at the end of new = ')
-                        -- require('entry/luadump')(true)(state)
                     end
                 end
             elseif (name == "uncheck") then
                 state.checkedItems = func.filter(state.checkedItems, function(e) return e ~= param.id end)
             elseif (name == "check") then
-                if (not func.contains(state.checkedItems, param.id)) then
-                    state.checkedItems[#state.checkedItems + 1] = param.id
-                end
+                arrayUtils.addUnique(state.checkedItems, param.id)
+                -- if (not func.contains(state.checkedItems, param.id)) then
+                --     state.checkedItems[#state.checkedItems + 1] = param.id
+                -- end
             elseif (name == "construction") then
                 -- user clicked finalise button
                 local entries = pipe.new
@@ -650,8 +640,10 @@ local script = {
                 end
             elseif (name == "select") then
                 -- if not func.contains(state.built, param.id) then
-                    state.items[#state.items + 1] = param.id
-                    state.stations[#state.stations + 1] = param.id
+                    arrayUtils.addUnique(state.items, param.id)
+                    -- state.items[#state.items + 1] = param.id
+                    arrayUtils.addUnique(state.stations, param.id)
+                    -- state.stations[#state.stations + 1] = param.id
                     -- state.built[#state.built + 1] = param.id
                     state.builtLevelCount[param.id] = param.nbGroup
                 -- end
@@ -659,14 +651,16 @@ local script = {
                 -- LOLLO TODO this is also funny
                 -- state.items = func.filter(state.items, function(i) return not func.contains(state.built, i) or func.contains(state.checkedItems, i) end)
                 -- state.built = func.filter(state.built, function(b) return func.contains(state.checkedItems, b) end)
-                print('LOLLO state.items after window.close = ')
-                luadump(true)(state.items)
             end
+            print('LOLLO state after event ', name, ' = ')
+            luadump(true)(state)
         end
     end,
     guiHandleEvent = function(id, name, param)
         if (name == "select") then
+            print('LOLLO guiHandleEvent with name = select')
             local entity = game.interface.getEntity(param)
+            print('LOLLO entity type = ', entity and entity.type or 'NONE')
             if (entity and entity.type == "CONSTRUCTION" and entity.fileName == "street/underpass_entry.con") then
                 if func.contains(state.items, entity.id) then
                     _showWindow()
@@ -675,23 +669,24 @@ local script = {
                 local lastVisited = false
                 local nbGroup = 0
                 local cons = game.interface.getEntities({pos = entity.pos, radius = 9999}, {type = "CONSTRUCTION", includeData = true, fileName = "station/rail/mus.con"})
-                for _, s in ipairs(entity.stations) do
-                    for _, c in pairs(cons) do
-                        if c.params and c.params.isFinalized == 1 and func.contains(c.stations, s) then -- LOLLO check this
-                        -- if c.params and func.contains(c.stations, s) then
-                            lastVisited = c.id
-                            nbGroup = #(func.filter(func.keys(_decomp(c.params)), function(g) return g < 9 end))
-                        elseif func.contains(state.items, c.id) then
+                debugger()
+                for _, sta in ipairs(entity.stations) do
+                    for _, con in pairs(cons) do
+                        -- if con.params and con.params.isFinalized == 1 and func.contains(con.stations, sta) then -- LOLLO check this
+                        if con.params and func.contains(con.stations, sta) then
+                            lastVisited = con.id
+                            nbGroup = #(func.filter(func.keys(_decomp(con.params)), function(g) return g < 9 end))
+                        elseif func.contains(state.items, con.id) then
                             _showWindow()
                         end
                     end
                 end
+                -- this is to assign a value to builtLevelCount, which was not there in previous releases
                 if lastVisited then
                     game.interface.sendScriptEvent("__underpassEvent__", "select", {id = lastVisited, nbGroup = nbGroup})
                 end
             end
-        end
-        if name == "builder.apply" then
+        elseif name == "builder.apply" then
             local toRemove = param.proposal.toRemove
             local toAdd = param.proposal.toAdd
             if toRemove then
