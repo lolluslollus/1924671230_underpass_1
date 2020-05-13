@@ -530,15 +530,15 @@ local script = {
                     end
                 elseif (#state.addedItems > #state.items) then
                     _closeWindow()
-                    state._showWindow = true
+                    state.showWindow = true
                 end
                 _checkFn()
             end
-        -- elseif (state._showWindow and #state.items - #state.built > 0) then
-        elseif (state._showWindow and #state.items > 0) then
+        -- elseif (state.showWindow and #state.items - #state.built > 0) then
+        elseif (state.showWindow and #state.items > 0) then
             _showWindow()
             _checkFn()
-            state._showWindow = false
+            state.showWindow = false
         end
     end,
     handleEvent = function(src, id, name, param)
@@ -722,7 +722,7 @@ local script = {
                                     isEntry = true
                                 }
                             )
-                            state._showWindow = true
+                            state.showWindow = true
                         else
                             print('error in entry.lua: cannot get underpass id')
                         end
