@@ -35,7 +35,10 @@ local function rawpairs(t)
 end
 
 local function isSequenceKey(k, sequenceLength)
-    return type(k) == 'number' and 1 <= k and k <= sequenceLength and floor(k) == k
+    return type(k) == 'number'
+        and 1 <= k
+        and k <= sequenceLength
+        and floor(k) == k
 end
 
 local function getSequenceLength(t)
@@ -79,41 +82,39 @@ end
 
 local function dumpFn(f)
     local params = {}
-    pcall(
-        function()
-            local oldhook
-            local hook = function(event, line)
-                for k, _ in getLocals(3) do
-                    if k == '(*vararg)' then
-                        insert(params, '...')
-                        break
-                    end
-                    insert(params, k)
+    pcall(function()
+        local oldhook
+        local hook = function(event, line)
+            for k, _ in getLocals(3) do
+                if k == "(*vararg)" then
+                    insert(params, "...")
+                    break
                 end
-                debug.sethook(oldhook)
-                error('aborting the call')
+                insert(params, k)
             end
-            oldhook = debug.sethook(hook, 'c')
-            -- To test for vararg must pass a least one vararg parameter
-            f(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20)
+            debug.sethook(oldhook)
+            error('aborting the call')
         end
-    )
-    return '(' .. table.concat(params, ', ') .. ')'
+        oldhook = debug.sethook(hook, "c")
+        -- To test for vararg must pass a least one vararg parameter
+        f(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20)
+    end)
+    return "(" .. table.concat(params, ", ") .. ")"
 end
 
 --Above from
 --https://stackoverflow.com/questions/142417/is-there-a-way-to-determine-the-signature-of-a-lua-function
 
-local aIndent = '  '
+local aIndent = "  "
 
 local function isSimple(node)
-    return type(node) == 'number' or type(node) == 'boolean'
+    return type(node) == "number" or type(node) == "boolean"
 end
 
 local dumpKey = function(k)
-    if (type(k) == 'number') then
-        return tostring(k):format('[%s]')
-    elseif string.find(k, '^[_%a][_%w]*$') then
+    if (type(k) == "number") then
+        return tostring(k):format("[%s]")
+    elseif string.find(k, "^[_%a][_%w]*$") then
         return k
     else
         return '["' .. k .. '"]'
@@ -125,25 +126,19 @@ local function dump(printFn)
         local indent = indent or 0
         local sindent = aIndent:rep(indent + 1)
         local callback = {
-            number = function()
-                return tostring(node)
-            end,
-            boolean = function()
-                return node and 'true' or 'false'
-            end,
-            string = function()
-                return '"' .. node .. '"'
-            end,
+            number = function() return tostring(node) end,
+            boolean = function() return node and "true" or "false" end,
+            string = function() return '"' .. node .. '"' end,
             table = function()
                 local nonSequentialKeys, nonSequentialKeysLength, sequenceLength = getNonSequentialKeys(node)
-
+                
                 local simpleChildrenSeq = true
                 local simpleChildrenNSeq = true
-
+                
                 local seqIndex = {}
                 local seqFnIndex = {}
                 for i = 1, sequenceLength do
-                    if (type(node[i]) == 'function') then
+                    if (type(node[i]) == "function") then
                         if (printFn) then
                             insert(seqIndex, i)
                         else
@@ -154,14 +149,14 @@ local function dump(printFn)
                         simpleChildrenSeq = simpleChildrenSeq and isSimple(node[i])
                     end
                 end
-
+                
                 local nSeqStr = {}
                 local nSeqFnStr = {}
                 local nSeqKeyMax = 0
                 local nSeqFnKeyMax = 0
                 for i = 1, nonSequentialKeysLength do
                     local k = nonSequentialKeys[i]
-                    if (type(node[k]) == 'function') then
+                    if (type(node[k]) == "function") then
                         if (printFn) then
                             local key = dumpKey(k)
                             insert(nSeqFnStr, {k = key, t = printLua(node[k], indent + 1)})
@@ -174,47 +169,41 @@ local function dump(printFn)
                         nSeqKeyMax = nSeqKeyMax > key:len() and nSeqKeyMax or key:len()
                     end
                 end
-
-                local strSeq = ''
-                local strNSeq = ''
-                local strNSeqFn = ''
+                
+                local strSeq = ""
+                local strNSeq = ""
+                local strNSeqFn = ""
                 if (#seqIndex == sequenceLength) then
                     if (simpleChildrenSeq) then
                         for i = 1, #seqIndex do
-                            strSeq =
-                                string.format(
-                                '%s%s%s',
+                            strSeq = string.format("%s%s%s",
                                 strSeq,
                                 printLua(node[seqIndex[i]], indent + 1),
-                                i == #seqIndex and (#nSeqStr == 0 and #nSeqFnStr == 0 and '' or ',\n') or ', '
-                            )
+                                i == #seqIndex and (#nSeqStr == 0 and #nSeqFnStr == 0 and "" or ",\n") or ", "
+                        )
                         end
                     else
                         for i = 1, #seqIndex do
-                            strSeq =
-                                string.format(
-                                '%s%s%s%s',
+                            strSeq = string.format("%s%s%s%s",
                                 strSeq,
                                 sindent,
                                 printLua(node[seqIndex[i]], indent + 1),
-                                i == #seqIndex and #nSeqStr == 0 and #nSeqFnStr == 0 and '' or ',\n'
-                            )
+                                i == #seqIndex and #nSeqStr == 0 and #nSeqFnStr == 0 and "" or ",\n"
+                        )
                         end
                     end
                 else
                     for i = 1, #seqIndex do
-                        strSeq =
-                            string.format(
-                            '%s%s[%d] = %s%s',
+                        strSeq = string.format("%s%s[%d] = %s%s",
                             strSeq,
                             sindent,
                             seqIndex[i],
                             printLua(node[seqIndex[i]], indent + 1),
-                            i == #seqIndex and #nSeqStr == 0 and #nSeqFnStr == 0 and '' or ',\n'
-                        )
+                            i == #seqIndex and #nSeqStr == 0 and #nSeqFnStr == 0 and "" or ",\n"
+                    )
                     end
                 end
-
+                
                 if (simpleChildrenNSeq) then
                     local totalLength = 0
                     for i = 1, #nSeqStr do
@@ -222,119 +211,91 @@ local function dump(printFn)
                     end
                     if (totalLength < 120) then
                         for i = 1, #nSeqStr do
-                            strNSeq =
-                                string.format(
-                                '%s%s = %s%s',
-                                strNSeq,
-                                nSeqStr[i].k,
-                                nSeqStr[i].t,
-                                i == #nSeqStr and (#nSeqFnStr == 0 and '' or ',\n') or ', '
-                            )
+                            strNSeq = string.format("%s%s = %s%s", strNSeq, nSeqStr[i].k, nSeqStr[i].t, i == #nSeqStr and (#nSeqFnStr == 0 and "" or ",\n") or ", ")
                         end
                     else
                         simpleChildrenNSeq = false
                         for i = 1, #nSeqStr do
-                            strNSeq =
-                                string.format(
-                                '%s%s%s%s = %s%s',
+                            strNSeq = string.format("%s%s%s%s = %s%s",
                                 strNSeq,
                                 sindent,
                                 nSeqStr[i].k,
-                                string.rep(' ', nSeqKeyMax - #nSeqStr[i].k),
+                                string.rep(" ", nSeqKeyMax - #nSeqStr[i].k),
                                 nSeqStr[i].t,
-                                i == #nSeqStr and #nSeqFnStr == 0 and '' or ',\n'
-                            )
+                                i == #nSeqStr and #nSeqFnStr == 0 and "" or ",\n"
+                        )
                         end
                     end
                 else
                     for i = 1, #nSeqStr do
-                        strNSeq =
-                            string.format(
-                            '%s%s%s = %s%s',
+                        strNSeq = string.format("%s%s%s = %s%s",
                             strNSeq,
                             sindent,
                             nSeqStr[i].k,
                             nSeqStr[i].t,
-                            i == #nSeqStr and #nSeqFnStr and '' or ',\n'
-                        )
+                            i == #nSeqStr and #nSeqFnStr and "" or ",\n"
+                    )
                     end
                 end
-
+                
                 for i = 1, #nSeqFnStr do
-                    strNSeqFn =
-                        string.format(
-                        '%s%s%s = %s%s',
-                        strNSeqFn,
-                        sindent,
-                        nSeqFnStr[i].k,
-                        nSeqFnStr[i].t,
-                        i == #nSeqFnStr and '' or ',\n'
-                    )
+                    strNSeqFn = string.format("%s%s%s = %s%s", strNSeqFn, sindent, nSeqFnStr[i].k, nSeqFnStr[i].t, i == #nSeqFnStr and "" or ",\n")
                 end
-
+                
                 if (simpleChildrenSeq and simpleChildrenNSeq) then
                     if (strSeq:len() == 0 or strNSeq:len() == 0) and strNSeqFn:len() == 0 then
-                        return string.format('{ %s%s }', strSeq, strNSeq)
+                        return string.format("{ %s%s }", strSeq, strNSeq)
                     else
-                        return string.format(
-                            '{\n%s%s%s\n%s}',
+                        return string.format("{\n%s%s%s\n%s}",
                             strSeq:len() > 0 and sindent .. strSeq or strSeq,
                             strNSeq:len() > 0 and sindent .. strNSeq or strNSeq,
                             strNSeqFn,
-                            aIndent:rep(indent)
-                        )
+                            aIndent:rep(indent))
                     end
                 else
-                    return string.format(
-                        '{\n%s%s%s\n%s}',
+                    return string.format("{\n%s%s%s\n%s}",
                         simpleChildrenSeq and strSeq:len() > 0 and sindent .. strSeq or strSeq,
                         simpleChildrenNSeq and strNSeq:len() > 0 and sindent .. strNSeq or strNSeq,
                         strNSeqFn,
-                        aIndent:rep(indent)
-                    )
+                        aIndent:rep(indent))
                 end
             end,
-            ['function'] = function()
-                return dumpFn(node)
-            end,
-            ['userdata'] = function()
+            ["function"] = function() return dumpFn(node) end,
+            ["userdata"] = function() 
                 local mt = getmetatable(node)
                 local members = mt.__members
-                local strSeq = ''
+                local strSeq = ""
                 local t = {}
                 if mt and mt.pairs then
-                    for k, v in pairs(node) do
+                    for k,v in pairs(node) do
                         t[k] = v
                     end
                     return printLua(t, indent)
                 elseif mt and members then
-                    local strSeq = ''
+                    local strSeq = ""
                     for i = 1, #members do
-                        strSeq =
-                            string.format(
-                            '%s%s%s = %s%s',
+                        strSeq = string.format("%s%s%s = %s%s",
                             strSeq,
                             sindent,
                             members[i],
                             printLua(node[members[i]], indent + 1),
-                            i == #members and '' or ',\n'
+                            i == #members and "" or ",\n"
                         )
                     end
-                    return #members > 1 and string.format('{\n%s%s\n}', strSeq, aIndent:rep(indent)) or
-                        string.format('{ %s }', strSeq)
+                    return #members > 1
+                        and string.format("{\n%s\n%s}", strSeq, aIndent:rep(indent))
+                        or string.format("{ %s }", strSeq)
                 else
                     return tostring(node)
                 end
             end,
-            ['thread'] = function()
-                return ''
-            end
-        }
+            ["thread"] = function() return "" end
+        }        
         if callback[type(node)] then
             return callback[type(node)](node)
         else
-            return '<unknown type>'
-        end
+            return "<unknown type>"
+        end        
     end
     return printLua
 end
