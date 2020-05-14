@@ -57,6 +57,21 @@ local function _decomp(params)
     return group
 end
 
+local function _getStationGroupName(constructionEntity)
+    if type(constructionEntity) ~= 'table' or type(constructionEntity.position) ~= 'table' then return '' end
+
+    local nearbyStationGroups = game.interface.getEntities(
+        {pos = constructionEntity.position, radius = 0},
+        {type = "STATION_GROUP", includeData = true}
+    )
+
+    for _, staGro in pairs(nearbyStationGroups) do
+        return staGro.name
+    end
+
+    return constructionEntity.name
+end
+
 local function _addEntry(id)
     if not (state.linkEntries) then return end
 
@@ -67,12 +82,14 @@ local function _addEntry(id)
         function()
             local isEntry = entity.fileName == "street/underpass_entry.con"
             local isStation = entity.fileName == "station/rail/mus.con"
-            local isBuilt = isStation and entity.params and entity.params.isFinalized == 1
+            -- local isBuilt = isStation and entity.params and entity.params.isFinalized == 1
             if not isEntry and not isStation then return end
 
+            local stationName = isStation and _getStationGroupName(entity) or ''
             local layoutId = "underpass.link." .. tostring(id) .. "."
             local hLayout = gui.boxLayout_create(layoutId .. "layout", "HORIZONTAL")
-            local label = gui.textView_create(layoutId .. "label", isEntry and tostring(id) or entity.name .. (isBuilt and _("BUILT") or ""), 300)
+            -- local label = gui.textView_create(layoutId .. "label", isEntry and tostring(id) or entity.name .. (isBuilt and _("BUILT") or ""), 300)
+            local label = gui.textView_create(layoutId .. "label", isEntry and tostring(id) or stationName, 300)
             local icon = gui.imageView_create(layoutId .. "icon",
                 isEntry and
                 "ui/construction/street/underpass_entry_small.tga" or
@@ -177,7 +194,7 @@ local function _checkFn()
         if (#stations + func.fold({}, 0, function(t, b) return (state.builtLevelCount[b] or 99) + t end) > _maxMergedStations) then
             game.gui.setEnabled(state.linkEntries.button.id, false)
             state.linkEntries.desc:setText(_("STATION_MAX_LIMIT"), 200)
-        elseif #entries > 0 or #stations > 1 then -- LOLLO TODO offer this option if entries are already in some station
+        elseif #entries > 0 or #stations > 1 then
             game.gui.setEnabled(state.linkEntries.button.id, true)
             state.linkEntries.desc:setText(_("STATION_CAN_FINALIZE"), 200)
         else
@@ -570,7 +587,6 @@ local script = {
     handleEvent = function(src, id, name, param)
         if (id == "__underpassEvent__") then
             print('-------- LOLLO event name = ', name)
-            -- LOLLO TODO renew names in state. Cannot be done from game.interface, the game won't allow it
             
             if (name == "remove") then
                 state.items = func.filter(state.items, function(e) return not func.contains(param, e) end)
