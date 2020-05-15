@@ -16,13 +16,13 @@ local state = {
     warningShaderMod = false,
     
     items = {},
-    popupItems = {},
+    guiPopupItems = {},
     checkedItems = {},
     
     stations = {},
     entries = {},
     
-    linkEntries = false,
+    guiLinkEntriesWindow = false,
     -- built = {},
     builtLevelCount = {},
 
@@ -74,7 +74,7 @@ local function _getStationGroupName(constructionEntity)
 end
 
 local function _guiAddEntry(id)
-    if not (state.linkEntries) then return end
+    if not (state.guiLinkEntriesWindow) then return end
 
     local entity = game.interface.getEntity(id)
     if not (entity) then return end
@@ -105,14 +105,7 @@ local function _guiAddEntry(id)
                 or "ui/design/components/checkbox_invalid.tga"
             )
             local checkboxBtn = gui.button_create(layoutId .. "checkbox", checkboxView)
-
-            -- LOLLO TODO remove after testing
-            local checkboxImage = func.contains(state.checkedItems, id)
-            and "ui/design/components/checkbox_valid.tga"
-            or "ui/design/components/checkbox_invalid.tga"
-            print('LOLLO id = ', id, 'checkbox image = ', checkboxImage)
-
-            
+           
             hLayout:addItem(locateBtn)
             hLayout:addItem(checkboxBtn)
             hLayout:addItem(icon)
@@ -136,15 +129,15 @@ local function _guiAddEntry(id)
             )
             local comp = gui.component_create(layoutId .. "comp", "")
             comp:setLayout(hLayout)
-            state.linkEntries.layout:addItem(comp)
-            state.popupItems[#state.popupItems + 1] = id
+            state.guiLinkEntriesWindow.layout:addItem(comp)
+            state.guiPopupItems[#state.guiPopupItems + 1] = id
     --     end,
     --     _myErrorHandlerShort
     -- )
 end
 
 local function _guiCheckFn()
-    if not (state.linkEntries) then return end
+    if not (state.guiLinkEntriesWindow) then return end
 
     local stations = func.filter(state.checkedItems, function(e) return func.contains(state.stations, e) end)
     local entries = func.filter(state.checkedItems, function(e) return func.contains(state.entries, e) end)
@@ -152,55 +145,55 @@ local function _guiCheckFn()
     
     if (#stations > 0) then
         -- if (#stations - #built + func.fold(built, 0, function(t, b) return (state.builtLevelCount[b] or 99) + t end) > _maxMergedStations) then
-        --     game.gui.setEnabled(state.linkEntries.button.id, false)
-        --     state.linkEntries.desc:setText(_("STATION_MAX_LIMIT"), 200)
+        --     game.gui.setEnabled(state.guiLinkEntriesWindow.button.id, false)
+        --     state.guiLinkEntriesWindow.desc:setText(_("STATION_MAX_LIMIT"), 200)
         -- elseif (#entries > 0 or (#built > 0 and #stations > 1)) then
-        --     game.gui.setEnabled(state.linkEntries.button.id, true)
-        --     state.linkEntries.desc:setText(_("STATION_CAN_FINALIZE"), 200)
+        --     game.gui.setEnabled(state.guiLinkEntriesWindow.button.id, true)
+        --     state.guiLinkEntriesWindow.desc:setText(_("STATION_CAN_FINALIZE"), 200)
         -- else
-        --     game.gui.setEnabled(state.linkEntries.button.id, false)
-        --     state.linkEntries.desc:setText(_("STATION_NEED_ENTRY"), 200)
+        --     game.gui.setEnabled(state.guiLinkEntriesWindow.button.id, false)
+        --     state.guiLinkEntriesWindow.desc:setText(_("STATION_NEED_ENTRY"), 200)
         -- end
         if (#stations + func.fold({}, 0, function(t, b) return (state.builtLevelCount[b] or 99) + t end) > _maxMergedStations) then
-            game.gui.setEnabled(state.linkEntries.button.id, false)
-            state.linkEntries.desc:setText(_("STATION_MAX_LIMIT"), 200)
+            game.gui.setEnabled(state.guiLinkEntriesWindow.button.id, false)
+            state.guiLinkEntriesWindow.desc:setText(_("STATION_MAX_LIMIT"), 200)
         elseif #entries > 0 or #stations > 1 then
-            game.gui.setEnabled(state.linkEntries.button.id, true)
-            state.linkEntries.desc:setText(_("STATION_CAN_FINALIZE"), 200)
+            game.gui.setEnabled(state.guiLinkEntriesWindow.button.id, true)
+            state.guiLinkEntriesWindow.desc:setText(_("STATION_CAN_FINALIZE"), 200)
         else
-            game.gui.setEnabled(state.linkEntries.button.id, false)
-            state.linkEntries.desc:setText(_("STATION_NEED_ENTRY"), 200)
+            game.gui.setEnabled(state.guiLinkEntriesWindow.button.id, false)
+            state.guiLinkEntriesWindow.desc:setText(_("STATION_NEED_ENTRY"), 200)
         end
 
-        state.linkEntries.button.icon:setImage("ui/construction/station/rail/mus_op.tga")
-        state.linkEntries:setTitle(_("STATION_CON"))
+        state.guiLinkEntriesWindow.button.icon:setImage("ui/construction/station/rail/mus_op.tga")
+        state.guiLinkEntriesWindow:setTitle(_("STATION_CON"))
     elseif (#stations == 0) then
         if (#entries > 1) then
-            game.gui.setEnabled(state.linkEntries.button.id, true)
-            state.linkEntries.desc:setText(_("UNDERPASS_CAN_FINALIZE"), 200)
+            game.gui.setEnabled(state.guiLinkEntriesWindow.button.id, true)
+            state.guiLinkEntriesWindow.desc:setText(_("UNDERPASS_CAN_FINALIZE"), 200)
         else
-            game.gui.setEnabled(state.linkEntries.button.id, false)
-            state.linkEntries.desc:setText(_("UNDERPASS_NEED_ENTRY"), 200)
+            game.gui.setEnabled(state.guiLinkEntriesWindow.button.id, false)
+            state.guiLinkEntriesWindow.desc:setText(_("UNDERPASS_NEED_ENTRY"), 200)
         end
-        state.linkEntries.button.icon:setImage("ui/construction/street/underpass_entry_op.tga")
-        state.linkEntries:setTitle(_("UNDERPASS_CON"))
+        state.guiLinkEntriesWindow.button.icon:setImage("ui/construction/street/underpass_entry_op.tga")
+        state.guiLinkEntriesWindow:setTitle(_("UNDERPASS_CON"))
     else
-        game.gui.setEnabled(state.linkEntries.button.id, false)
+        game.gui.setEnabled(state.guiLinkEntriesWindow.button.id, false)
     end
 end
 
 local function _guiCloseWindow()
-    if (state.linkEntries) then
-        local w = state.linkEntries
+    if (state.guiLinkEntriesWindow) then
+        local w = state.guiLinkEntriesWindow
         state.pos = game.gui.getContentRect(w.id)
         w:close()
     end
-    state.popupItems = {}
-    state.linkEntries = false
+    state.guiPopupItems = {}
+    state.guiLinkEntriesWindow = false
 end
 
 local function _guiShowWindow()
-    if state.linkEntries or #state.items < 1 then return end
+    if state.guiLinkEntriesWindow or #state.items < 1 then return end
 
     local finishIcon = gui.imageView_create("underpass.link.icon", "ui/construction/street/underpass_entry_op.tga")
     local finishButton = gui.button_create("underpass.link.button", finishIcon)
@@ -216,13 +209,13 @@ local function _guiShowWindow()
     local vLayout = gui.boxLayout_create("underpass.link.vLayout", "VERTICAL")
     vLayout:addItem(comp)
     
-    state.linkEntries = gui.window_create("underpass.link.window", _("UNDERPASS_CON"), vLayout)
-    state.linkEntries.desc = finishDesc
-    state.linkEntries.button = finishButton
-    state.linkEntries.button.icon = finishIcon
-    state.linkEntries.layout = vLayout
+    state.guiLinkEntriesWindow = gui.window_create("underpass.link.window", _("UNDERPASS_CON"), vLayout)
+    state.guiLinkEntriesWindow.desc = finishDesc
+    state.guiLinkEntriesWindow.button = finishButton
+    state.guiLinkEntriesWindow.button.icon = finishIcon
+    state.guiLinkEntriesWindow.layout = vLayout
     
-    state.linkEntries:onClose(function()
+    state.guiLinkEntriesWindow:onClose(function()
         _guiCloseWindow()
         game.interface.sendScriptEvent("__underpassEvent__", "window.close", {})
     end)
@@ -233,13 +226,7 @@ local function _guiShowWindow()
         game.interface.sendScriptEvent("__underpassEvent__", "construction", {})
     end)
     
-    game.gui.window_setPosition(state.linkEntries.id, table.unpack(state.pos and {state.pos[1], state.pos[2]} or {200, 200}))
-
-    -- for _, ite in pairs(state.items) do
-    --     _guiAddEntry(ite)
-    -- end
-
-    -- _guiCheckFn()
+    game.gui.window_setPosition(state.guiLinkEntriesWindow.id, table.unpack(state.pos and {state.pos[1], state.pos[2]} or {200, 200}))
 end
 
 local function _guiShaderWarning()
@@ -473,8 +460,8 @@ local function _buildStation(newEntries, stations) -- , built)
         -- leadingStation.params -- NO!
         arrayUtils.cloneOmittingFields(leadingStation.params, {'seed'})
     )
-    -- update global variables
 
+    -- update global variables
     if newId then
         -- if (built and #built > 1) then
         --     for _, b in ipairs(built) do
@@ -596,9 +583,9 @@ local script = {
         -- this fires many times per second, and the state may be current, or not!
         if state.showWindow then
             _guiShowWindow()
-            if #state.popupItems < #state.items then
+            if #state.guiPopupItems < #state.items then
                 for _, ite in pairs(state.items) do
-                    if not func.contains(state.popupItems, ite) then
+                    if not func.contains(state.guiPopupItems, ite) then
                         _guiAddEntry(ite)
                     end
                 end
