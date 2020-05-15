@@ -468,23 +468,12 @@ local function _buildStation(newEntries, stations) -- , built)
         --         state.builtLevelCount[b.id] = nil
         --     end
         -- end
-
         state.builtLevelCount[newId] = #stations
-
-        print('LOLLO attachedStationIds = ')
-        luadump(true)(attachedStationIds)
-
         state.items = func.filter(state.items, function(e) return not func.contains(state.checkedItems, e) end)
-        print('LOLLO state.checkedItems after upgrade station 1 = ')
-        luadump(true)(state.checkedItems)
-        -- LOLLO TODO check this
         state.checkedItems = func.filter(
             state.checkedItems,
             function(e) return not func.contains(attachedStationIds, e) end
         )
-        print('LOLLO state.checkedItems after upgrade station 2 = ')
-        luadump(true)(state.checkedItems)
-
         state.stations = func.filter(state.stations, function(e) return func.contains(state.items, e) end)
         state.entries = func.filter(state.entries, function(e) return func.contains(state.items, e) end)
         -- state.built = func.filter(state.built, function(e) return func.contains(state.items, e) end)
@@ -531,16 +520,10 @@ local function _buildUnderpass(incomingEntries)
         "street/underpass_entry.con",
         newParams
     )
-    print('LOLLO newId after upgrading underpass = ', newId or 'NIL', 'leadingId = ', leadingEntry.id)
 
     if newId then
-        print('LOLLO attachedEntries ids = ')
-        luadump(true)(func.map(attachedEntries, function(e) return e.id end))
         state.items = func.filter(state.items, function(e) return not func.contains(state.checkedItems, e) end)
         state.entries = func.filter(state.entries, function(e) return func.contains(state.items, e) end)
-        print('LOLLO state.checkedItems after underpass upgrade 1 = ')
-        luadump(true)(state.checkedItems)
-        -- LOLLO TODO check the following
         state.checkedItems = func.filter(
             state.checkedItems,
             function(e) return not func.contains(
@@ -548,8 +531,6 @@ local function _buildUnderpass(incomingEntries)
                 e
             ) end
         )
-        print('LOLLO state.checkedItems after underpass upgrade 2 = ')
-        luadump(true)(state.checkedItems)
     end
 end
 
@@ -597,9 +578,9 @@ local script = {
     end,
     handleEvent = function(src, id, name, param)
         if (id == "__underpassEvent__") then
-            print('-------- LOLLO handling event name = ', name)
-            print('LOLLO state before event ', name, ' = ')
-            luadump(true)(state)
+            -- print('-------- LOLLO handling event name = ', name)
+            -- print('LOLLO state before event ', name, ' = ')
+            -- luadump(true)(state)
 
             if (name == "remove") then
                 state.items = func.filter(state.items, function(e) return not func.contains(param, e) end)
@@ -632,7 +613,7 @@ local script = {
                             end
                         end
 
-                        -- state.showWindow = true
+                        state.showWindow = true
                     end
                 end
             elseif (name == "uncheck") then
@@ -689,8 +670,8 @@ local script = {
             elseif (name == "window.open") then
                 state.showWindow = true
             end
-            print('LOLLO state after event ', name, ' = ')
-            luadump(true)(state)
+            -- print('LOLLO state after event ', name, ' = ')
+            -- luadump(true)(state)
         end
     end,
     guiHandleEvent = function(id, name, param)
@@ -763,13 +744,12 @@ local script = {
 
                         if type(param) == 'table' and param.result[1] ~= nil then
                             game.interface.sendScriptEvent(
-                                "__underpassEvent__", "new", 
+                                "__underpassEvent__", "new",
                                 {
                                     id = param.result[1],
                                     isEntry = true
                                 }
                             )
-                            game.interface.sendScriptEvent("__underpassEvent__", "window.open", {})
                         else
                             print('error in entry.lua: cannot get underpass id')
                         end
