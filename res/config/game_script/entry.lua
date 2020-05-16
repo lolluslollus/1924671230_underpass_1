@@ -13,21 +13,19 @@ local _maxDistanceForConnectedItems = 160.0
 local _maxMergedStations = 8
 
 local state = {
-    warningShaderMod = false,
-    
+-- these props are set in the work threads
     items = {},
-    guiPopupItems = {},
     checkedItems = {},
-    
-    stations = {},
     entries = {},
-    
-    guiLinkEntriesWindow = false,
+    stations = {},
     -- built = {},
     builtLevelCount = {},
-
-    pos = false,
     showWindow = false,
+-- these props are set in the UI thread
+    guiLinkEntriesWindow = false,
+    guiPopupItems = {},
+    guiWarningShaderMod = false,
+    guiWindowRectangle = false,
 }
 
 local function _myErrorHandlerShort(err)
@@ -56,6 +54,18 @@ local function _decomp(params)
         group[groupId].modules[slotId - groupId * _baseStationComponentSlotId] = m
     end
     return group
+end
+
+local function _getUnderpassEntryCount(params)
+    local result = 0
+    if type(params) ~= 'table' or type(params.modules) ~= 'table' then return result end
+
+    for _, modu in pairs(params.modules) do
+        if type(modu) == 'table' and type(modu.metadata) == 'table' and modu.metadata.entry then
+            result = result + 1
+        end
+    end
+    return result
 end
 
 local function _getStationGroupName(constructionEntity)
@@ -138,7 +148,6 @@ end
 
 local function _guiCheckFn()
     if not (state.guiLinkEntriesWindow) then return end
-
     local stations = func.filter(state.checkedItems, function(e) return func.contains(state.stations, e) end)
     local entries = func.filter(state.checkedItems, function(e) return func.contains(state.entries, e) end)
     -- local built = func.filter(state.checkedItems, function(e) return func.contains(state.built, e) end)
@@ -185,7 +194,7 @@ end
 local function _guiCloseWindow()
     if (state.guiLinkEntriesWindow) then
         local w = state.guiLinkEntriesWindow
-        state.pos = game.gui.getContentRect(w.id)
+        state.guiWindowRectangle = game.gui.getContentRect(w.id)
         w:close()
     end
     state.guiPopupItems = {}
@@ -193,6 +202,7 @@ local function _guiCloseWindow()
 end
 
 local function _guiShowWindow()
+    -- the window is only supposed to appear with unfinalised constructions
     if state.guiLinkEntriesWindow or #state.items < 1 then return end
 
     local finishIcon = gui.imageView_create("underpass.link.icon", "ui/construction/street/underpass_entry_op.tga")
@@ -226,12 +236,12 @@ local function _guiShowWindow()
         game.interface.sendScriptEvent("__underpassEvent__", "construction", {})
     end)
     
-    game.gui.window_setPosition(state.guiLinkEntriesWindow.id, table.unpack(state.pos and {state.pos[1], state.pos[2]} or {200, 200}))
+    game.gui.window_setPosition(state.guiLinkEntriesWindow.id, table.unpack(state.guiWindowRectangle and {state.guiWindowRectangle[1], state.guiWindowRectangle[2]} or {200, 200}))
 end
 
 local function _guiShaderWarning()
     if (not game.config.shaderMod) then
-        if not state.warningShaderMod then
+        if not state.guiWarningShaderMod then
             local textview = gui.textView_create(
                 "underpass.warning.textView",
                 _([["SHADER_WARNING"]]),
@@ -239,22 +249,22 @@ local function _guiShaderWarning()
             )
             local layout = gui.boxLayout_create("underpass.warning.boxLayout", "VERTICAL")
             layout:addItem(textview)
-            state.warningShaderMod = gui.window_create(
+            state.guiWarningShaderMod = gui.window_create(
                 "underpass.warning.window",
                 _("Warning"),
                 layout
             )
-            state.warningShaderMod:onClose(function()state.warningShaderMod = false end)
+            state.guiWarningShaderMod:onClose(function()state.guiWarningShaderMod = false end)
         end
         
         local mainView = game.gui.getContentRect("mainView")
         local mainMenuHeight = game.gui.getContentRect("mainMenuTopBar")[4] + game.gui.getContentRect("mainMenuBottomBar")[4]
-        local size = game.gui.calcMinimumSize(state.warningShaderMod.id)
+        local size = game.gui.calcMinimumSize(state.guiWarningShaderMod.id)
         local y = mainView[4] - size[2] - mainMenuHeight
         local x = mainView[3] - size[1]
         
-        game.gui.window_setPosition(state.warningShaderMod.id, x * 0.5, y * 0.5)
-        game.gui.setHighlighted(state.warningShaderMod.id, true)
+        game.gui.window_setPosition(state.guiWarningShaderMod.id, x * 0.5, y * 0.5)
+        game.gui.setHighlighted(state.guiWarningShaderMod.id, true)
     end
 end
 
@@ -461,7 +471,7 @@ local function _buildStation(newEntries, stations) -- , built)
         arrayUtils.cloneOmittingFields(leadingStation.params, {'seed'})
     )
 
-    -- update global variables
+    -- update global variables (remember this is a worker thread)
     if newId then
         -- if (built and #built > 1) then
         --     for _, b in ipairs(built) do
@@ -469,9 +479,13 @@ local function _buildStation(newEntries, stations) -- , built)
         --     end
         -- end
         state.builtLevelCount[newId] = #stations
-        state.items = func.filter(state.items, function(e) return not func.contains(state.checkedItems, e) end)
+        -- state.items = func.filter(state.items, function(e) return not func.contains(state.checkedItems, e) end)
         state.checkedItems = func.filter(
             state.checkedItems,
+            function(e) return not func.contains(attachedStationIds, e) end
+        )
+        state.items = func.filter(
+            state.items,
             function(e) return not func.contains(attachedStationIds, e) end
         )
         state.stations = func.filter(state.stations, function(e) return func.contains(state.items, e) end)
@@ -490,6 +504,8 @@ local function _buildUnderpass(incomingEntries)
             attachedEntries[#attachedEntries + 1] = ent
         end
     end
+    -- nothing found, leave
+    if leadingEntry.params == nil then return end
 
     local newParams = _cloneWoutModulesAndSeed(leadingEntry.params)
     local leadingTransf = _cloneWoutModulesAndSeed(leadingEntry.transf)
@@ -521,8 +537,16 @@ local function _buildUnderpass(incomingEntries)
         newParams
     )
 
+    -- update global variables (remember this is a worker thread)
     if newId then
-        state.items = func.filter(state.items, function(e) return not func.contains(state.checkedItems, e) end)
+        -- state.items = func.filter(state.items, function(e) return not func.contains(state.checkedItems, e) end)
+        state.items = func.filter(
+            state.items,
+            function(e) return not func.contains(
+                func.map(attachedEntries, function(e) return e.id end),
+                e
+            ) end
+        )
         state.entries = func.filter(state.entries, function(e) return func.contains(state.items, e) end)
         state.checkedItems = func.filter(
             state.checkedItems,
@@ -564,14 +588,22 @@ local script = {
         -- this fires many times per second, and the state may be current, or not!
         -- the state props, which are updated in the work thread, may not be current. For example, state.items may not be current.
         if state.showWindow then
-            _guiShowWindow()
-            if #state.guiPopupItems < #state.items then
-                for _, ite in pairs(state.items) do
-                    if not func.contains(state.guiPopupItems, ite) then
-                        _guiAddEntry(ite)
-                    end
+            for _, ite in pairs(state.guiPopupItems) do
+                if not func.contains(state.items, ite) then
+                    _guiCloseWindow() -- the window contains an obsolete item and the API has no way of removing it:
+                    -- close the window (clearing the relevant state.gui* properties), it will reopen with fresh data next time guiUpdate fires
+                    return
                 end
             end
+
+            _guiShowWindow()
+
+            for _, ite in pairs(state.items) do
+                if not func.contains(state.guiPopupItems, ite) then
+                    _guiAddEntry(ite)
+                end
+            end
+
             _guiCheckFn()
         else
             _guiCloseWindow()
@@ -657,7 +689,7 @@ local script = {
                 else
                     _buildStation(entries, stations)
                 end
-            elseif (name == "select") then
+            elseif (name == "select.station") then
                 -- if not func.contains(state.built, param.id) then
                     arrayUtils.addUnique(state.items, param.id)
                     arrayUtils.addUnique(state.stations, param.id)
@@ -680,16 +712,20 @@ local script = {
         if (name == "select") then
             local entity = game.interface.getEntity(param)
             if (entity and entity.type == "CONSTRUCTION" and entity.fileName == "street/underpass_entry.con") then
-                if func.contains(state.items, entity.id) then
+                local entryCount = _getUnderpassEntryCount(entity.params)
+                if entryCount < 2 then --and func.contains(state.items, entity.id) then
                     game.interface.sendScriptEvent("__underpassEvent__", "window.open", {})
                 end
             elseif (entity and entity.type == "STATION_GROUP") then
                 local isShowWindow = false
                 -- local lastVisited = false
                 -- local nbGroup = 0
-                local allUndergroundStationConstructions = game.interface.getEntities({pos = entity.pos, radius = 9999}, {type = "CONSTRUCTION", includeData = true, fileName = "station/rail/mus.con"})
+                local allUndergroundStationConstructions = game.interface.getEntities(
+                    {pos = entity.position, radius = 9999},
+                    {type = "CONSTRUCTION", includeData = true, fileName = "station/rail/mus.con"}
+                )
                 -- the game distinguishes constructions, stations and station groups.
-                -- Constructions and stations are not selected, only station groups, which do not contain a lot of data.
+                -- Constructions and stations in a station group are not selected, only the station group itself, which does not contain a lot of data.
                 -- This is why we need this loop.
                 for _, staId in ipairs(entity.stations) do
                     for _, con in pairs(allUndergroundStationConstructions) do
@@ -699,10 +735,17 @@ local script = {
                                 -- lastVisited = con.id
                                 -- nbGroup = #(func.filter(func.keys(_decomp(con.params)), function(g) return g < 9 end))
                                 if con.id then
-                                    local nbGroup = #(func.filter(func.keys(_decomp(con.params)), function(g) return g < 9 end))
-                                    game.interface.sendScriptEvent("__underpassEvent__", "select", {id = con.id, nbGroup = nbGroup})
+                                    local groups = _decomp(con.params)
+                                    -- nbGroup is the number of stations, which are attached together
+                                    local nbGroup = #(func.filter(func.keys(groups), function(g) return g < 9 end))
+                                    
+                                    game.interface.sendScriptEvent(
+                                        "__underpassEvent__", 
+                                        "select.station", 
+                                        {id = con.id, nbGroup = nbGroup}
+                                    )
                                 end
-                            elseif func.contains(state.items, con.id) then
+                            elseif con.params then -- func.contains(state.items, con.id) then
                                 isShowWindow = true
                             end
                         end
@@ -710,7 +753,7 @@ local script = {
                 end
                 -- this is to assign a value to builtLevelCount to the lastVisited station (original code)
                 -- if lastVisited then
-                --     game.interface.sendScriptEvent("__underpassEvent__", "select", {id = lastVisited, nbGroup = nbGroup})
+                --     game.interface.sendScriptEvent("__underpassEvent__", "select.station", {id = lastVisited, nbGroup = nbGroup})
                 -- end
                 if isShowWindow then
                     game.interface.sendScriptEvent("__underpassEvent__", "window.open", {})

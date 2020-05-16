@@ -23,9 +23,11 @@ arrayUtils.map = function(arr, func)
 end
 
 arrayUtils.cloneOmittingFields = function(tab, fields2Omit)
+    local results = {}
+    if type(tab) ~= 'table' then return results end
+
     if type(fields2Omit) ~= 'table' then fields2Omit = {} end
 
-    local results = {}
     for key, value in pairs(tab) do
         if not arrayUtils.arrayHasValue(fields2Omit, key) then
             results[key] = value
