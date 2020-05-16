@@ -562,6 +562,7 @@ local script = {
     -- end,
     guiUpdate = function()
         -- this fires many times per second, and the state may be current, or not!
+        -- the state props, which are updated in the work thread, may not be current. For example, state.items may not be current.
         if state.showWindow then
             _guiShowWindow()
             if #state.guiPopupItems < #state.items then
