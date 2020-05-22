@@ -12,6 +12,7 @@ local _idTransf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
 local _maxDistanceForConnectedItems = 160.0
 local _maxMergedStations = 8
 
+-- LOLLO NOTE there is one state for everything, not one state for each construction.
 local state = {
 -- these props are set in the work threads
     items = {},
@@ -22,6 +23,7 @@ local state = {
     builtLevelCount = {},
     showWindow = false,
 -- these props are set in the UI thread
+    guiIsRefreshingWindow = false,
     guiLinkEntriesWindow = false,
     guiPopupItems = {},
     guiWarningShaderMod = false,
@@ -227,7 +229,11 @@ local function _guiShowWindow()
     
     state.guiLinkEntriesWindow:onClose(function()
         _guiCloseWindow()
-        game.interface.sendScriptEvent("__underpassEvent__", "window.close", {})
+        if state.guiIsRefreshingWindow then
+            state.guiIsRefreshingWindow = false
+        else
+            game.interface.sendScriptEvent("__underpassEvent__", "window.close", {})
+        end
     end)
     
     finishButton:onClick(function()
@@ -235,7 +241,7 @@ local function _guiShowWindow()
         game.interface.sendScriptEvent("__underpassEvent__", "window.close", {})
         game.interface.sendScriptEvent("__underpassEvent__", "construction", {})
     end)
-    
+
     game.gui.window_setPosition(state.guiLinkEntriesWindow.id, table.unpack(state.guiWindowRectangle and {state.guiWindowRectangle[1], state.guiWindowRectangle[2]} or {200, 200}))
 end
 
@@ -558,6 +564,36 @@ local function _buildUnderpass(incomingEntries)
     end
 end
 
+local function _updateStateForFinaliseWindow(eventParams)
+    if not eventParams or not eventParams.id then return end
+
+    local newEntity = game.interface.getEntity(eventParams.id)
+    if newEntity == nil or newEntity.position == nil then return end
+
+    local nearbyEntities = game.interface.getEntities(
+        {pos = newEntity.position, radius = _maxDistanceForConnectedItems},
+        {type = 'CONSTRUCTION', includeData = true}
+    )
+
+    state.items = {}
+    state.entries = {} --newEntity.fileName == 'street/underpass_entry.con' and {newEntity.id} or {} -- useless, lua will sort the table
+    state.checkedItems = {}
+    state.stations = {} --newEntity.fileName == 'station/rail/mus.con' and {newEntity.id} or {}
+    for _, nearbyEntity in pairs(nearbyEntities) do
+        if nearbyEntity.fileName == 'street/underpass_entry.con' then
+            state.entries[#state.entries + 1] = nearbyEntity.id -- LOLLO added this
+            state.checkedItems[#state.checkedItems + 1] = nearbyEntity.id -- LOLLO added this
+            state.items[#state.items + 1] = nearbyEntity.id -- LOLLO added this
+        elseif nearbyEntity.fileName == 'station/rail/mus.con' then
+            state.stations[#state.stations + 1] = nearbyEntity.id -- LOLLO added this
+            state.checkedItems[#state.checkedItems + 1] = nearbyEntity.id -- LOLLO added this
+            state.items[#state.items + 1] = nearbyEntity.id -- LOLLO added this
+        end
+    end
+
+    state.showWindow = true
+end
+
 local script = {
     save = function()
         if not state then state = {} end
@@ -590,9 +626,12 @@ local script = {
         if state.showWindow then
             for _, ite in pairs(state.guiPopupItems) do
                 if not func.contains(state.items, ite) then
-                    _guiCloseWindow() -- the window contains an obsolete item and the API has no way of removing it:
+                    -- the window contains an obsolete item and the API has no way of removing it:
                     -- close the window (clearing the relevant state.gui* properties), it will reopen with fresh data next time guiUpdate fires
-                    return
+                    state.guiIsRefreshingWindow = true
+                    _guiCloseWindow()
+                    return -- wait for the next cycle before redrawing
+                    -- break -- dumps
                 end
             end
 
@@ -609,50 +648,24 @@ local script = {
             _guiCloseWindow()
         end
     end,
-    handleEvent = function(src, id, name, param)
+    handleEvent = function(src, id, name, params)
         if (id == "__underpassEvent__") then
             -- print('-------- LOLLO handling event name = ', name)
             -- print('LOLLO state before event ', name, ' = ')
             -- luadump(true)(state)
 
             if (name == "remove") then
-                state.items = func.filter(state.items, function(e) return not func.contains(param, e) end)
-                state.checkedItems = func.filter(state.checkedItems, function(e) return not func.contains(param, e) end)
-                state.entries = func.filter(state.entries, function(e) return not func.contains(param, e) end)
-                state.stations = func.filter(state.stations, function(e) return not func.contains(param, e) end)
-                -- state.built = func.filter(state.built, function(e) return not func.contains(param, e) end)
+                state.items = func.filter(state.items, function(e) return not func.contains(params, e) end)
+                state.checkedItems = func.filter(state.checkedItems, function(e) return not func.contains(params, e) end)
+                state.entries = func.filter(state.entries, function(e) return not func.contains(params, e) end)
+                state.stations = func.filter(state.stations, function(e) return not func.contains(params, e) end)
+                -- state.built = func.filter(state.built, function(e) return not func.contains(params, e) end)
             elseif (name == "new") then
-                if param and param.id then
-                    local newEntity = game.interface.getEntity(param.id)
-                    if newEntity ~= nil and newEntity.position then
-                        local nearbyEntities = game.interface.getEntities(
-                            {pos = newEntity.position, radius = _maxDistanceForConnectedItems},
-                            {type = 'CONSTRUCTION', includeData = true}
-                        )
-
-                        state.items = {}
-                        state.entries = {} --newEntity.fileName == 'street/underpass_entry.con' and {newEntity.id} or {} -- useless, lua will sort the table
-                        state.checkedItems = {}
-                        state.stations = {} --newEntity.fileName == 'station/rail/mus.con' and {newEntity.id} or {}
-                        for _, nearbyEntity in pairs(nearbyEntities) do
-                            if nearbyEntity.fileName == 'street/underpass_entry.con' then
-                                state.entries[#state.entries + 1] = nearbyEntity.id -- LOLLO added this
-                                state.checkedItems[#state.checkedItems + 1] = nearbyEntity.id -- LOLLO added this
-                                state.items[#state.items + 1] = nearbyEntity.id -- LOLLO added this
-                            elseif nearbyEntity.fileName == 'station/rail/mus.con' then
-                                state.stations[#state.stations + 1] = nearbyEntity.id -- LOLLO added this
-                                state.checkedItems[#state.checkedItems + 1] = nearbyEntity.id -- LOLLO added this
-                                state.items[#state.items + 1] = nearbyEntity.id -- LOLLO added this
-                            end
-                        end
-
-                        state.showWindow = true
-                    end
-                end
+                _updateStateForFinaliseWindow(params)
             elseif (name == "uncheck") then
-                state.checkedItems = func.filter(state.checkedItems, function(e) return e ~= param.id end)
+                state.checkedItems = func.filter(state.checkedItems, function(e) return e ~= params.id end)
             elseif (name == "check") then
-                arrayUtils.addUnique(state.checkedItems, param.id)
+                arrayUtils.addUnique(state.checkedItems, params.id)
             elseif (name == "construction") then
                 -- user clicked finalise button
                 local entries = pipe.new
@@ -689,37 +702,33 @@ local script = {
                 else
                     _buildStation(entries, stations)
                 end
-            elseif (name == "select.station") then
-                -- if not func.contains(state.built, param.id) then
-                    arrayUtils.addUnique(state.items, param.id)
-                    arrayUtils.addUnique(state.stations, param.id)
-                    -- state.built[#state.built + 1] = param.id
-                    state.builtLevelCount[param.id] = param.nbGroup
-                -- end
+            elseif (name == "selectUnfinalisedObject") then
+                _updateStateForFinaliseWindow(params)
+            elseif (name == "updateUnfinalisedStation") then
+                state.builtLevelCount[params.id] = params.stationCount
             elseif (name == "window.close") then
                 state.showWindow = false
                 -- state.items = func.filter(state.items, function(i) return not func.contains(state.built, i) or func.contains(state.checkedItems, i) end)
                 -- state.built = func.filter(state.built, function(b) return func.contains(state.checkedItems, b) end)
-            elseif (name == "window.open") then
-                state.showWindow = true
             end
+
             -- print('LOLLO state after event ', name, ' = ')
             -- luadump(true)(state)
         end
     end,
     guiHandleEvent = function(id, name, param)
-        -- param is the id of the selected item.
         if (name == "select") then
+            -- with this event, param is the selected item id
             local entity = game.interface.getEntity(param)
             if (entity and entity.type == "CONSTRUCTION" and entity.fileName == "street/underpass_entry.con") then
                 local entryCount = _getUnderpassEntryCount(entity.params)
                 if entryCount < 2 then --and func.contains(state.items, entity.id) then
-                    game.interface.sendScriptEvent("__underpassEvent__", "window.open", {})
+                    game.interface.sendScriptEvent("__underpassEvent__", "selectUnfinalisedObject", {id = entity.id})
                 end
             elseif (entity and entity.type == "STATION_GROUP") then
-                local isShowWindow = false
+                local lastConstructionId = false
                 -- local lastVisited = false
-                -- local nbGroup = 0
+                -- local stationCount = 0
                 local allUndergroundStationConstructions = game.interface.getEntities(
                     {pos = entity.position, radius = 9999},
                     {type = "CONSTRUCTION", includeData = true, fileName = "station/rail/mus.con"}
@@ -733,30 +742,30 @@ local script = {
                             if con.params and con.params.isFinalized == 1 then
                                 -- this is to assign builtLevelCount to every station in the selected group
                                 -- lastVisited = con.id
-                                -- nbGroup = #(func.filter(func.keys(_decomp(con.params)), function(g) return g < 9 end))
+                                -- stationCount = #(func.filter(func.keys(_decomp(con.params)), function(g) return g < 9 end))
                                 if con.id then
                                     local groups = _decomp(con.params)
-                                    -- nbGroup is the number of stations, which are attached together
-                                    local nbGroup = #(func.filter(func.keys(groups), function(g) return g < 9 end))
+                                    -- stationCount is the number of stations, which are attached together
+                                    local stationCount = #(func.filter(func.keys(groups), function(g) return g < 9 end))
                                     
                                     game.interface.sendScriptEvent(
-                                        "__underpassEvent__", 
-                                        "select.station", 
-                                        {id = con.id, nbGroup = nbGroup}
+                                        "__underpassEvent__",
+                                        "updateUnfinalisedStation",
+                                        {id = con.id, stationCount = stationCount}
                                     )
                                 end
-                            elseif con.params then -- func.contains(state.items, con.id) then
-                                isShowWindow = true
+                            elseif con.params and con.id then -- func.contains(state.items, con.id) then
+                                lastConstructionId = con.id
                             end
                         end
                     end
                 end
                 -- this is to assign a value to builtLevelCount to the lastVisited station (original code)
                 -- if lastVisited then
-                --     game.interface.sendScriptEvent("__underpassEvent__", "select.station", {id = lastVisited, nbGroup = nbGroup})
+                --     game.interface.sendScriptEvent("__underpassEvent__", "updateUnfinalisedStation", {id = lastVisited, stationCount = stationCount})
                 -- end
-                if isShowWindow then
-                    game.interface.sendScriptEvent("__underpassEvent__", "window.open", {})
+                if lastConstructionId then
+                    game.interface.sendScriptEvent("__underpassEvent__", "selectUnfinalisedObject", {id = lastConstructionId})
                 end
             end
         elseif name == "builder.apply" then
