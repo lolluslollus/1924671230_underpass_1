@@ -71,18 +71,27 @@ local function _getUnderpassEntryCount(params)
 end
 
 local function _getStationGroupName(constructionEntity)
+    -- when the user renames a station, this affects the station group but not the station:
+    -- this function climbs the hierarchy to find out the right name.
     if type(constructionEntity) ~= 'table' or type(constructionEntity.position) ~= 'table' then return '' end
+    if type(constructionEntity.stations) ~= 'table' then return constructionEntity.name or '' end
 
     local nearbyStationGroups = game.interface.getEntities(
-        {pos = constructionEntity.position, radius = 0},
+        {pos = constructionEntity.position, radius = _maxDistanceForConnectedItems},
         {type = "STATION_GROUP", includeData = true}
     )
 
-    for _, staGro in pairs(nearbyStationGroups) do
-        return staGro.name
+    for _, nearbyStaGro in pairs(nearbyStationGroups) do
+        if type(nearbyStaGro) == 'table' and type(nearbyStaGro.stations) == 'table' then
+            for _, staId in pairs(constructionEntity.stations) do
+                if func.contains(nearbyStaGro.stations, staId) then
+                    return nearbyStaGro.name
+                end
+            end
+        end
     end
 
-    return constructionEntity.name
+    return constructionEntity.name or ''
 end
 
 local function _guiAddEntry(id)
