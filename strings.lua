@@ -69,7 +69,7 @@ local descTC = [[本模組可自由建造人行地道
 function data()
     return {
         en = {
-            ["name"] = "Underpass",
+            ["name"] = "Underpass Tweaked",
             ["desc"] = descEN,
             ["MENU_WALL"] = "Wall Pattern",
             ["MENU_FLOOR_STYLE"] = "Floor Pattern",
