@@ -143,9 +143,10 @@ function data()
                 key = "width",
                 name = _("MENU_WIDTH"),
                 values = func.map(widthList, tostring),
-                defaultIndex = 1
+                defaultIndex = 0
             },
         },
+        skipCollision = true, -- LOLLO NOTE added this, but it seems useless
         upgradeFn = upgradeFn,
         updateFn = updateFn
     }
