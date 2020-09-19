@@ -146,7 +146,6 @@ function data()
                 defaultIndex = 0
             },
         },
-        skipCollision = true, -- LOLLO NOTE added this, but it seems useless
         upgradeFn = upgradeFn,
         updateFn = updateFn
     }
