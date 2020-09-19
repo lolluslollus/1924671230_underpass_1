@@ -257,7 +257,9 @@ end
 
 function pipe.select(name, def)
     return function(el)
-        return (el[name] == nil) and def or el[name]
+        -- LOLLO fixed this
+        return (el == nil or el[name] == nil) and def or el[name]
+        -- return (el[name] == nil) and def or el[name]
     end
 end
 
