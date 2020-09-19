@@ -146,6 +146,7 @@ function data()
                 defaultIndex = 0
             },
         },
+        skipCollision = true, -- LOLLO added this
         upgradeFn = upgradeFn,
         updateFn = updateFn
     }

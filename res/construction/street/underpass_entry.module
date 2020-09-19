@@ -127,7 +127,7 @@ function data()
         metadata = {
             entry = true,
         },
-        
+        skipCollision = true, -- LOLLO added this
         updateFn = function(result, transform, tag, slotId, addModelFn, params)
             -- local params = result.entryModules[slotId].params and result.entryModules[slotId].params or params -- LOLLO changed this
             local params = (result and result.entryModules and result.entryModules[slotId] and result.entryModules[slotId].params)
