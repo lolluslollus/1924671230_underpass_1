@@ -13,6 +13,11 @@
                     text = "Idea, Scripting, Modeling, Texturing",
                     steamProfile = "enzojz",
                     tfnetId = 27218,
+                },
+                {
+                    name = "Lollus",
+                    role = "CREATOR",
+                    text = "Scripting",
                 }
             },
             tags = {"Street Construction", "Tunnel"},
