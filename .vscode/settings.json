@@ -9,6 +9,7 @@
         "_",
         "game",
         "gui",
-        "data"
+        "data",
+        "debugPrint"
     ]
 }

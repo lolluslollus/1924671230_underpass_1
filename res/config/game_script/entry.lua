@@ -778,6 +778,15 @@ local script = {
             local toRemove = param.proposal.toRemove
             local toAdd = param.proposal.toAdd
             -- LOLLO TODO enzojz added the following line, it looks bodgy, check it
+            if toRemove and #toRemove == 1 and toAdd and #toAdd == 1 and toRemove[1] == param.result[1] then
+                print('LOLLO entry.lua: the bodge condition happened')
+                print('toRemove =')
+                debugPrint(toRemove)
+                print('toAdd =')
+                debugPrint(toAdd)
+                print('param.result[1] =')
+                debugPrint(param.result[1])
+            end
             -- if not (toRemove and #toRemove == 1 and toAdd and #toAdd == 1 and toRemove[1] == param.result[1]) then
             if toRemove then
                 local eventParams = {}
