@@ -748,21 +748,18 @@ local script = {
                 for _, staId in ipairs(entity.stations) do
                     for _, con in pairs(allUndergroundStationConstructions) do
                         if func.contains(con.stations, staId) then
-                            if con.params and con.params.isFinalized == 1 then
+                            if con.params and con.id and con.params.isFinalized == 1 then
                                 -- this is to assign builtLevelCount to every station in the selected group
                                 -- lastVisited = con.id
                                 -- stationCount = #(func.filter(func.keys(_decomp(con.params)), function(g) return g < 9 end))
-                                if con.id then
-                                    local groups = _decomp(con.params)
-                                    -- stationCount is the number of stations, which are attached together
-                                    local stationCount = #(func.filter(func.keys(groups), function(g) return g < 9 end))
-                                    
-                                    game.interface.sendScriptEvent(
-                                        "__underpassEvent__",
-                                        "updateUnfinalisedStation",
-                                        {id = con.id, stationCount = stationCount}
-                                    )
-                                end
+                                local groups = _decomp(con.params)
+                                -- stationCount is the number of stations, which are attached together
+                                local stationCount = #(func.filter(func.keys(groups), function(g) return g < 9 end))
+                                game.interface.sendScriptEvent(
+                                    "__underpassEvent__",
+                                    "updateUnfinalisedStation",
+                                    {id = con.id, stationCount = stationCount}
+                                )
                             elseif con.params and con.id then -- func.contains(state.items, con.id) then
                                 lastConstructionId = con.id
                             end
@@ -780,11 +777,13 @@ local script = {
         elseif name == "builder.apply" then
             local toRemove = param.proposal.toRemove
             local toAdd = param.proposal.toAdd
+            -- LOLLO TODO enzojz added the following line, it looks bodgy, check it
+            -- if not (toRemove and #toRemove == 1 and toAdd and #toAdd == 1 and toRemove[1] == param.result[1]) then
             if toRemove then
-                local params = {}
-                for _, r in ipairs(toRemove) do if func.contains(state.items, r) then params[#params + 1] = r end end
-                if (#params > 0) then
-                    game.interface.sendScriptEvent("__underpassEvent__", "remove", params)
+                local eventParams = {}
+                for _, r in ipairs(toRemove) do if func.contains(state.items, r) then eventParams[#eventParams + 1] = r end end
+                if (#eventParams > 0) then
+                    game.interface.sendScriptEvent("__underpassEvent__", "remove", eventParams)
                 end
             end
             if toAdd and #toAdd > 0 then
@@ -804,7 +803,7 @@ local script = {
                         --     end
                         -- end
 
-                        if type(param) == 'table' and param.result[1] ~= nil then
+                        if type(param) == 'table' and param.result and param.result[1] ~= nil then
                             game.interface.sendScriptEvent(
                                 "__underpassEvent__", "new",
                                 {
@@ -818,6 +817,7 @@ local script = {
                     end
                 end
             end
+            -- end
         end
     end
 }
