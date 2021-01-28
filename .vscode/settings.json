@@ -10,6 +10,7 @@
         "game",
         "gui",
         "data",
-        "debugPrint"
+        "debugPrint",
+        "api"
     ]
 }

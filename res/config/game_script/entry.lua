@@ -775,6 +775,13 @@ local script = {
                 end
             end
         elseif name == "builder.apply" then
+            local conId = param.result[1]
+            if type(conId) ~= 'number' or id < 1 or not(api.engine.entityExists(conId)) then return end
+
+            local con = api.engine.getComponent(conId, api.type.ComponentType.CONSTRUCTION)
+            if con == nil or type(con.fileName) ~= 'string' or
+            (con.fileName ~= [[street/underpass_entry.con]] and con.fileName ~= [[station/rail/mus.con]]) then return end
+
             local toRemove = param.proposal.toRemove
             local toAdd = param.proposal.toAdd
             -- LOLLO TODO enzojz added the following line, it looks bodgy, check it
